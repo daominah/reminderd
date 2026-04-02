@@ -34,6 +34,7 @@ type UserInputTracker struct {
 	isReminded       bool
 	lastReminderTime time.Time
 	reminderCount    int
+	lastStatusLog    time.Time
 }
 
 func NewUserInputTracker(idle IdleDetector, notifier Notifier) *UserInputTracker {
@@ -45,7 +46,12 @@ func NewUserInputTracker(idle IdleDetector, notifier Notifier) *UserInputTracker
 
 // Run polls the idle detector on an interval until the context is cancelled.
 func (t *UserInputTracker) Run(ctx context.Context) error {
-	log.Println("reminderd started")
+	log.Printf("reminderd started (activeLimit=%s, idleThreshold=%s, poll=%s)",
+		ContinuousActiveLimit, IdleThreshold, PollInterval)
+	if idle, err := t.IdleDetector.IdleSeconds(); err == nil {
+		lastInput := t.timeNow().Add(-time.Duration(idle * float64(time.Second)))
+		log.Printf("last input: %s (idle %.0fs)", lastInput.Format("15:04:05"), idle)
+	}
 	ticker := time.NewTicker(PollInterval)
 	defer ticker.Stop()
 	for {
@@ -76,6 +82,13 @@ func (t *UserInputTracker) Tick() {
 			t.reminderCount = 0
 		}
 		return
+	}
+
+	// Log last input time periodically.
+	lastInput := now.Add(-time.Duration(idle * float64(time.Second)))
+	if now.Sub(t.lastStatusLog) >= IdleThreshold {
+		log.Printf("last input: %s (idle %.0fs)", lastInput.Format("15:04:05"), idle)
+		t.lastStatusLog = now
 	}
 
 	// User is active.

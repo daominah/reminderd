@@ -70,9 +70,9 @@ go build -o reminderd ./cmd/reminderd
 - [x] Step 4: High-level design
 - [x] Step 5: Detailed implementation plan
 - [x] Step 6: Write failing tests
-- [ ] Step 7: Commit, push, open draft PR
+- [x] Step 7: Commit, push
 - [x] Step 8: Implement the feature
-- [ ] Step 9: Document
-- [ ] Step 10: Commit implementation, mark PR ready
+- [x] Step 9: Document
+- [x] Step 10: Commit and push
 - [ ] Step 11: Self-review
 - [ ] Step 12: Request review
