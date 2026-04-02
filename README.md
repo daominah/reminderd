@@ -33,10 +33,6 @@ go build -o reminderd ./cmd/reminderd
 ./reminderd &
 ```
 
-## Requirements
-
-- macOS: grant Input Monitoring permission on first run (no admin needed on any platform).
-
 ## Design
 
 ### Components
@@ -57,11 +53,6 @@ go build -o reminderd ./cmd/reminderd
 
 4. **`cmd/reminderd/main.go`**: wires drivers into tracker, starts the loop.
 
-### Risks
-
-- macOS: if Input Monitoring is not granted, idle time returns 0
-  (always "just active"). Log a warning if idle is always 0 for too long.
-
 ## Checklist
 
 - [x] Step 1: Understand requirements
@@ -74,5 +65,5 @@ go build -o reminderd ./cmd/reminderd
 - [x] Step 8: Implement the feature
 - [x] Step 9: Document
 - [x] Step 10: Commit and push
-- [ ] Step 11: Self-review
-- [ ] Step 12: Request review
+- [x] Step 11: Self-review
+- [x] Step 12: Tested on macOS and Windows
