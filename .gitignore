@@ -1,0 +1,33 @@
+# user-specific IDE, tool, and OS files
+.idea
+.vscode
+.DS_Store
+.claude/settings.local.json
+
+# the following are inspired by https://github.com/github/gitignore/blob/main/Go.gitignore
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+/reminderd
+cmd/reminderd/reminderd
+
+# Test binary and Go tools: coverage, pprof, ...
+*.test
+*.out
+
+profile*.pdf
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env files may contain secrets
+config/.env
