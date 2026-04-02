@@ -53,17 +53,7 @@ go build -o reminderd ./cmd/reminderd
 
 4. **`cmd/reminderd/main.go`**: wires drivers into tracker, starts the loop.
 
-## Checklist
+## Roadmap
 
-- [x] Step 1: Understand requirements
-- [x] Step 2: Clarify vague items
-- [x] Step 3: Spike (not needed)
-- [x] Step 4: High-level design
-- [x] Step 5: Detailed implementation plan
-- [x] Step 6: Write failing tests
-- [x] Step 7: Commit, push
-- [x] Step 8: Implement the feature
-- [x] Step 9: Document
-- [x] Step 10: Commit and push
-- [x] Step 11: Self-review
-- [x] Step 12: Tested on macOS and Windows
+- **v0.0.2**: persist input/idle history across restarts, generate a usage chart.
+- **v0.0.3**: minimal UI with system tray, install as a service (auto-start on boot).
