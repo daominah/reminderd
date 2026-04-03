@@ -117,7 +117,7 @@ func (s *FileStore) CompactPrevious() error {
 		return nil
 	}
 
-	compacted := logic.CompactHistory(entries)
+	compacted := logic.CompactHistory(entries, logic.PollInterval)
 	return writeFile(target, compacted)
 }
 

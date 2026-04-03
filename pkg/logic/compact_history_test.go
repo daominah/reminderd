@@ -7,11 +7,14 @@ func TestCompactHistory_SingleEntry(t *testing.T) {
 	entries := []HistoryEntry{
 		{Time: "2026-04-03T09:00:00+07:00", State: Active},
 	}
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN it is kept as-is
+	// THEN it is kept as-is, not marked as compact (no range to collapse)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(result))
+	}
+	if result[0].IsCompact {
+		t.Error("single entry should not be marked as compact")
 	}
 }
 
@@ -21,21 +24,24 @@ func TestCompactHistory_TwoEntriesSameState(t *testing.T) {
 		{Time: "2026-04-03T09:00:00+07:00", State: Active},
 		{Time: "2026-04-03T09:00:10+07:00", State: Active},
 	}
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN both are kept (first and last of the run)
-	if len(result) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(result))
+	// THEN they collapse into 1 compact entry with a time range
+	if len(result) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(result))
+	}
+	if !result[0].IsCompact {
+		t.Error("expected IsCompact=true")
 	}
 	if result[0].Time != "2026-04-03T09:00:00+07:00" {
-		t.Errorf("expected first entry time 09:00:00, got %s", result[0].Time)
+		t.Errorf("expected Time 09:00:00, got %s", result[0].Time)
 	}
-	if result[1].Time != "2026-04-03T09:00:10+07:00" {
-		t.Errorf("expected last entry time 09:00:10, got %s", result[1].Time)
+	if result[0].TimeCompactEnd != "2026-04-03T09:00:10+07:00" {
+		t.Errorf("expected TimeCompactEnd 09:00:10, got %s", result[0].TimeCompactEnd)
 	}
 }
 
-func TestCompactHistory_LongRunKeepsOnlyFirstAndLast(t *testing.T) {
+func TestCompactHistory_LongRunKeepsOneCompactEntry(t *testing.T) {
 	// GIVEN 6 consecutive ACTIVE entries (10s apart)
 	entries := []HistoryEntry{
 		{Time: "2026-04-03T09:00:00+07:00", State: Active},
@@ -47,17 +53,20 @@ func TestCompactHistory_LongRunKeepsOnlyFirstAndLast(t *testing.T) {
 	}
 
 	// WHEN compacting
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN only the first and last are kept
-	if len(result) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(result))
+	// THEN 1 compact entry spanning the full run
+	if len(result) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(result))
+	}
+	if !result[0].IsCompact {
+		t.Error("expected IsCompact=true")
 	}
 	if result[0].Time != "2026-04-03T09:00:00+07:00" {
-		t.Errorf("first: expected 09:00:00, got %s", result[0].Time)
+		t.Errorf("Time: expected 09:00:00, got %s", result[0].Time)
 	}
-	if result[1].Time != "2026-04-03T09:00:50+07:00" {
-		t.Errorf("last: expected 09:00:50, got %s", result[1].Time)
+	if result[0].TimeCompactEnd != "2026-04-03T09:00:50+07:00" {
+		t.Errorf("TimeCompactEnd: expected 09:00:50, got %s", result[0].TimeCompactEnd)
 	}
 }
 
@@ -70,11 +79,16 @@ func TestCompactHistory_AlternatingStates(t *testing.T) {
 	}
 
 	// WHEN compacting
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN nothing is removed (each run has length 1)
+	// THEN nothing is removed (each run is length 1, not compact)
 	if len(result) != 3 {
 		t.Fatalf("expected 3 entries, got %d", len(result))
+	}
+	for i, e := range result {
+		if e.IsCompact {
+			t.Errorf("entry %d: should not be compact", i)
+		}
 	}
 }
 
@@ -94,39 +108,41 @@ func TestCompactHistory_MultipleRuns(t *testing.T) {
 	}
 
 	// WHEN compacting
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN each run keeps first and last: 2 + 2 + 2 = 6 entries
-	if len(result) != 6 {
-		t.Fatalf("expected 6 entries, got %d", len(result))
+	// THEN 3 compact entries (one per run)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(result))
 	}
-	// First ACTIVE run: 09:00:00, 09:00:40
-	if result[0].Time != "2026-04-03T09:00:00+07:00" || result[0].State != Active {
-		t.Errorf("entry 0: got %s %s", result[0].Time, result[0].State)
+
+	// First ACTIVE run: 09:00:00 to 09:00:40
+	if result[0].State != Active || !result[0].IsCompact {
+		t.Errorf("entry 0: expected ACTIVE compact, got %s IsCompact=%v", result[0].State, result[0].IsCompact)
 	}
-	if result[1].Time != "2026-04-03T09:00:40+07:00" || result[1].State != Active {
-		t.Errorf("entry 1: got %s %s", result[1].Time, result[1].State)
+	if result[0].Time != "2026-04-03T09:00:00+07:00" || result[0].TimeCompactEnd != "2026-04-03T09:00:40+07:00" {
+		t.Errorf("entry 0: got %s to %s", result[0].Time, result[0].TimeCompactEnd)
 	}
-	// IDLE run: 09:00:50, 09:01:10
-	if result[2].Time != "2026-04-03T09:00:50+07:00" || result[2].State != Idle {
-		t.Errorf("entry 2: got %s %s", result[2].Time, result[2].State)
+
+	// IDLE run: 09:00:50 to 09:01:10
+	if result[1].State != Idle || !result[1].IsCompact {
+		t.Errorf("entry 1: expected IDLE compact, got %s IsCompact=%v", result[1].State, result[1].IsCompact)
 	}
-	if result[3].Time != "2026-04-03T09:01:10+07:00" || result[3].State != Idle {
-		t.Errorf("entry 3: got %s %s", result[3].Time, result[3].State)
+	if result[1].Time != "2026-04-03T09:00:50+07:00" || result[1].TimeCompactEnd != "2026-04-03T09:01:10+07:00" {
+		t.Errorf("entry 1: got %s to %s", result[1].Time, result[1].TimeCompactEnd)
 	}
-	// Second ACTIVE run: 09:01:20, 09:01:30
-	if result[4].Time != "2026-04-03T09:01:20+07:00" || result[4].State != Active {
-		t.Errorf("entry 4: got %s %s", result[4].Time, result[4].State)
+
+	// Second ACTIVE run: 09:01:20 to 09:01:30
+	if result[2].State != Active || !result[2].IsCompact {
+		t.Errorf("entry 2: expected ACTIVE compact, got %s IsCompact=%v", result[2].State, result[2].IsCompact)
 	}
-	if result[5].Time != "2026-04-03T09:01:30+07:00" || result[5].State != Active {
-		t.Errorf("entry 5: got %s %s", result[5].Time, result[5].State)
+	if result[2].Time != "2026-04-03T09:01:20+07:00" || result[2].TimeCompactEnd != "2026-04-03T09:01:30+07:00" {
+		t.Errorf("entry 2: got %s to %s", result[2].Time, result[2].TimeCompactEnd)
 	}
 }
 
-func TestCompactHistory_GapWithIdleEntry_KeepsIdleBoundary(t *testing.T) {
+func TestCompactHistory_GapWithIdleEntry(t *testing.T) {
 	// GIVEN ACTIVE entries with a 1h35m gap, and an IDLE entry on resume
-	// (bug_reminderd.txt scenario: process stopped, on resume the OS
-	// reported idle time, then user became active again)
+	// (bug_reminderd.txt scenario)
 	entries := []HistoryEntry{
 		{Time: "2026-04-03T18:40:46+07:00", State: Active},
 		{Time: "2026-04-03T18:40:56+07:00", State: Active},
@@ -138,35 +154,40 @@ func TestCompactHistory_GapWithIdleEntry_KeepsIdleBoundary(t *testing.T) {
 	}
 
 	// WHEN compacting
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN 3 runs are preserved: ACTIVE(first,last), IDLE(single), ACTIVE(first,last)
-	// = 2 + 1 + 2 = 5 entries.
-	// The IDLE entry survives, but the 1h35m gap before it is still
-	// counted as ACTIVE by the state-boundary model.
-	if len(result) != 5 {
-		t.Fatalf("expected 5 entries, got %d", len(result))
+	// THEN 3 entries: ACTIVE(compact), IDLE(single), ACTIVE(compact)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(result))
 	}
-	if result[0].Time != "2026-04-03T18:40:46+07:00" || result[0].State != Active {
-		t.Errorf("entry 0: got %s %s", result[0].Time, result[0].State)
+
+	// First ACTIVE run: 18:40:46 to 18:41:06 (only 20s of real activity)
+	if !result[0].IsCompact || result[0].State != Active {
+		t.Errorf("entry 0: expected ACTIVE compact")
 	}
-	if result[1].Time != "2026-04-03T18:41:06+07:00" || result[1].State != Active {
-		t.Errorf("entry 1: got %s %s", result[1].Time, result[1].State)
+	if result[0].Time != "2026-04-03T18:40:46+07:00" || result[0].TimeCompactEnd != "2026-04-03T18:41:06+07:00" {
+		t.Errorf("entry 0: got %s to %s", result[0].Time, result[0].TimeCompactEnd)
 	}
-	if result[2].Time != "2026-04-03T20:15:50+07:00" || result[2].State != Idle {
-		t.Errorf("entry 2: got %s %s", result[2].Time, result[2].State)
+
+	// IDLE: single entry, not compact
+	if result[1].IsCompact || result[1].State != Idle {
+		t.Errorf("entry 1: expected IDLE non-compact")
 	}
-	if result[3].Time != "2026-04-03T20:15:56+07:00" || result[3].State != Active {
-		t.Errorf("entry 3: got %s %s", result[3].Time, result[3].State)
+	if result[1].Time != "2026-04-03T20:15:50+07:00" {
+		t.Errorf("entry 1: got %s", result[1].Time)
 	}
-	if result[4].Time != "2026-04-03T20:16:16+07:00" || result[4].State != Active {
-		t.Errorf("entry 4: got %s %s", result[4].Time, result[4].State)
+
+	// Second ACTIVE run: 20:15:56 to 20:16:16
+	if !result[2].IsCompact || result[2].State != Active {
+		t.Errorf("entry 2: expected ACTIVE compact")
+	}
+	if result[2].Time != "2026-04-03T20:15:56+07:00" || result[2].TimeCompactEnd != "2026-04-03T20:16:16+07:00" {
+		t.Errorf("entry 2: got %s to %s", result[2].Time, result[2].TimeCompactEnd)
 	}
 }
 
-func TestCompactHistory_GapWithinSameState_MergesIntoOneRun(t *testing.T) {
-	// GIVEN ACTIVE entries with a 1h35m gap (process was stopped),
-	// but compact only looks at State, not timestamps
+func TestCompactHistory_GapWithinSameState(t *testing.T) {
+	// GIVEN ACTIVE entries with a 1h35m gap (bug_reminderd2.txt scenario)
 	entries := []HistoryEntry{
 		{Time: "2026-04-03T18:40:46+07:00", State: Active},
 		{Time: "2026-04-03T18:40:56+07:00", State: Active},
@@ -177,17 +198,24 @@ func TestCompactHistory_GapWithinSameState_MergesIntoOneRun(t *testing.T) {
 	}
 
 	// WHEN compacting
-	result := CompactHistory(entries)
+	result := CompactHistory(entries, PollInterval)
 
-	// THEN compact treats this as one ACTIVE run, keeping only first and last.
-	// The 1h35m gap is lost: indistinguishable from genuinely continuous activity.
+	// THEN 2 compact entries: the 1h35m gap splits the run
 	if len(result) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(result))
 	}
-	if result[0].Time != "2026-04-03T18:40:46+07:00" {
-		t.Errorf("first: got %s", result[0].Time)
+	// First session: 18:40:46 to 18:41:06
+	if !result[0].IsCompact || result[0].State != Active {
+		t.Errorf("entry 0: expected ACTIVE compact")
 	}
-	if result[1].Time != "2026-04-03T20:16:16+07:00" {
-		t.Errorf("last: got %s", result[1].Time)
+	if result[0].Time != "2026-04-03T18:40:46+07:00" || result[0].TimeCompactEnd != "2026-04-03T18:41:06+07:00" {
+		t.Errorf("entry 0: got %s to %s", result[0].Time, result[0].TimeCompactEnd)
+	}
+	// Second session: 20:15:56 to 20:16:16
+	if !result[1].IsCompact || result[1].State != Active {
+		t.Errorf("entry 1: expected ACTIVE compact")
+	}
+	if result[1].Time != "2026-04-03T20:15:56+07:00" || result[1].TimeCompactEnd != "2026-04-03T20:16:16+07:00" {
+		t.Errorf("entry 1: got %s to %s", result[1].Time, result[1].TimeCompactEnd)
 	}
 }

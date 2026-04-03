@@ -14,26 +14,26 @@ const (
 )
 
 type Config struct {
-	ContinuousActiveLimit          time.Duration
-	IdleDurationToConsiderBreak    time.Duration
-	KeyboardMouseInputPollInterval time.Duration
-	NotificationInitialBackoff     time.Duration
-	WebUIPort                      int
+	ContinuousActiveLimit       time.Duration
+	IdleDurationToConsiderBreak time.Duration
+	NotificationInitialBackoff  time.Duration
+	WebUIPort                   int
 }
 
 func DefaultConfig() Config {
 	return Config{
-		ContinuousActiveLimit:          60 * time.Minute,
-		IdleDurationToConsiderBreak:    2 * time.Minute,
-		KeyboardMouseInputPollInterval: 10 * time.Second,
-		NotificationInitialBackoff:     5 * time.Minute,
-		WebUIPort:                      20902,
+		ContinuousActiveLimit:       DefaultContinuousActiveLimit,
+		IdleDurationToConsiderBreak: DefaultIdleDurationToConsiderBreak,
+		NotificationInitialBackoff:  DefaultNotificationInitialBackoff,
+		WebUIPort:                   DefaultWebUIPort,
 	}
 }
 
 type HistoryEntry struct {
-	Time  string        `json:"Time"`
-	State ActivityState `json:"State"`
+	Time           string        `json:"Time"`
+	State          ActivityState `json:"State"`
+	IsCompact      bool          `json:"IsCompact,omitempty"`
+	TimeCompactEnd string        `json:"TimeCompactEnd,omitempty"`
 }
 
 // TimeFormat used in log files

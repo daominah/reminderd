@@ -66,7 +66,7 @@ func TestCompactPrevious_KeepsFirstAndLastOfRuns(t *testing.T) {
 	// Write 5 consecutive active entries
 	for i := range 5 {
 		store.WriteEntry(logic.HistoryEntry{
-			Time:  logic.FormatTime(start.Add(time.Duration(i) * 10 * time.Second)),
+			Time:  logic.FormatTime(start.Add(time.Duration(i) * logic.PollInterval)),
 			State: logic.Active,
 		})
 	}

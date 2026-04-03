@@ -23,7 +23,7 @@ func TestGetIndex_ReturnsHTML(t *testing.T) {
 		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
 		&logic.MockHistoryReader{},
 		testFS,
-		20902,
+		logic.DefaultWebUIPort,
 	)
 
 	// WHEN GET / is called
@@ -51,7 +51,7 @@ func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
 		&logic.MockHistoryReader{Entries: entries},
 		testFS,
-		20902,
+		logic.DefaultWebUIPort,
 	)
 
 	// WHEN GET /api/history is called
@@ -81,7 +81,7 @@ func TestGetAPIHistory_AcceptsTimeRange(t *testing.T) {
 		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
 		&logic.MockHistoryReader{Entries: entries},
 		testFS,
-		20902,
+		logic.DefaultWebUIPort,
 	)
 
 	// WHEN GET /api/history with start and end params is called
@@ -132,7 +132,7 @@ func TestGetAPIConfig_ReturnsCurrentConfig(t *testing.T) {
 func TestPostAPIConfig_UpdatesConfig(t *testing.T) {
 	// GIVEN a server with a config store
 	configStore := &logic.MockConfigStore{Cfg: logic.DefaultConfig()}
-	srv := NewServer(configStore, &logic.MockHistoryReader{}, testFS, 20902)
+	srv := NewServer(configStore, &logic.MockHistoryReader{}, testFS, logic.DefaultWebUIPort)
 
 	// WHEN POST /api/config is called with new values
 	body := `{"ContinuousActiveLimit":"30m","WebUIPort":8080}`

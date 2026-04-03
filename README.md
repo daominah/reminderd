@@ -18,10 +18,13 @@ go build -o reminderd ./cmd/reminderd
 ## How it works
 
 - Polls the OS for the time since the last keyboard/mouse event.
-- If you are continuously active for 60 minutes, it sends a desktop notification.
+- If you are continuously active for the configured limit (default 60m),
+  it sends a desktop notification.
 - After the reminder, if you keep working, it reminds again with
-  exponential backoff: 5m, 10m, 20m, ...
-- The timer resets once you take a break (2 minutes of no input).
+  exponential backoff starting at the configured initial backoff (default 5m),
+  then doubling: 10m, 20m, ...
+- The timer resets once you take a break
+  (idle for the configured threshold, default 2m).
 - Records activity history to daily files in `~/.reminderd/`.
 - Serves a web UI with an activity chart and settings at <http://localhost:20902>.
 
@@ -49,8 +52,7 @@ History is kept forever. Estimated storage:
 
 View and edit all settings from the browser.
 Each field has a tooltip explaining its meaning and recommended values.
-Changes take effect within one poll interval, no restart needed
-(except `KeyboardMouseInputPollInterval`, which requires a restart).
+Changes take effect within one poll interval (10s), no restart needed.
 
 On first run, the app creates `~/.reminderd/config.json` with defaults:
 
@@ -58,7 +60,6 @@ On first run, the app creates `~/.reminderd/config.json` with defaults:
 {
 	"ContinuousActiveLimit": "60m",
 	"IdleDurationToConsiderBreak": "2m",
-	"KeyboardMouseInputPollInterval": "10s",
 	"NotificationInitialBackoff": "5m",
 	"WebUIPort": 20902
 }
@@ -70,38 +71,32 @@ Send a test notification to verify that desktop alerts are working on your syste
 
 TODO: allow user to customize notification content.
 
-## Activity State Model
+## Log Compaction and Activity State
 
-History entries use a **state-boundary** model:
-each entry means "from this timestamp until the next entry, the user was in this state."
+### Log Compaction
 
-Given these log lines:
+`CompactHistory` keeps only the first and last entry of each consecutive same-state run.
 
-```jsonl
-{"Time":"2026-04-03T09:00:00+07:00","State":"ACTIVE"}
-{"Time":"2026-04-03T09:30:00+07:00","State":"IDLE"}
-{"Time":"2026-04-03T09:35:00+07:00","State":"ACTIVE"}
+```mermaid
+flowchart LR
+    A["Raw\nentries"] --> B["For each consecutive\nsame-state run"]
+    B --> C{"Run length\n> 1?"}
+    C -- yes --> D["Keep first\n+ last"]
+    C -- no --> E["Keep the\nsingle entry"]
+    D --> F["Compacted\nentries"]
+    E --> F
 ```
 
-The interpretation is:
+### User Activity State
 
-| Time range          | State  |
-|---------------------|--------|
-| 09:00:00 to 09:30:00 | ACTIVE |
-| 09:30:00 to 09:35:00 | IDLE   |
-| 09:35:00 onward      | ACTIVE |
+Each entry's state lasts until the next entry (state-boundary model).
+Works identically on raw and compacted logs.
 
-To determine the state at any moment, find the latest entry
-whose timestamp is at or before that moment.
-For example, 09:20:00 falls in the first ACTIVE range,
-and 09:32:00 falls in the IDLE range.
-
-For the last entry in the file, its state extends until the next entry
-is written (or until the current time when rendering charts).
-
-This model is why log compaction is lossless:
-mid-run entries are redundant because the first entry of a run marks
-the start and the last entry marks the end.
+```mermaid
+flowchart LR
+    Q["Query: state\nat time T"] --> S["Find latest entry\nwhere timestamp <= T"]
+    S --> R["That entry's\nState is the answer"]
+```
 
 ## Design
 

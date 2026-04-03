@@ -1,7 +1,12 @@
 package logic
 
-// CompactHistory keeps only the first and last entry of each consecutive state run.
-func CompactHistory(entries []HistoryEntry) []HistoryEntry {
+import "time"
+
+// CompactHistory collapses each consecutive same-state run into a single
+// entry with IsCompact=true and TimeCompactEnd set.
+// If the gap between two adjacent entries exceeds 2*pollInterval,
+// the run is split (they are not considered consecutive).
+func CompactHistory(entries []HistoryEntry, pollInterval time.Duration) []HistoryEntry {
 	if len(entries) == 0 {
 		return nil
 	}

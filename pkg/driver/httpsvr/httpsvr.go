@@ -87,11 +87,10 @@ func (s *Server) handleGetHistory(w http.ResponseWriter, r *http.Request) {
 
 // configResponse is the JSON representation sent to and received from the frontend.
 type configResponse struct {
-	ContinuousActiveLimit          string `json:"ContinuousActiveLimit"`
-	IdleDurationToConsiderBreak    string `json:"IdleDurationToConsiderBreak"`
-	KeyboardMouseInputPollInterval string `json:"KeyboardMouseInputPollInterval"`
-	NotificationInitialBackoff     string `json:"NotificationInitialBackoff"`
-	WebUIPort                      int    `json:"WebUIPort"`
+	ContinuousActiveLimit       string `json:"ContinuousActiveLimit"`
+	IdleDurationToConsiderBreak string `json:"IdleDurationToConsiderBreak"`
+	NotificationInitialBackoff  string `json:"NotificationInitialBackoff"`
+	WebUIPort                   int    `json:"WebUIPort"`
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -101,11 +100,10 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := configResponse{
-		ContinuousActiveLimit:          cfg.ContinuousActiveLimit.String(),
-		IdleDurationToConsiderBreak:    cfg.IdleDurationToConsiderBreak.String(),
-		KeyboardMouseInputPollInterval: cfg.KeyboardMouseInputPollInterval.String(),
-		NotificationInitialBackoff:     cfg.NotificationInitialBackoff.String(),
-		WebUIPort:                      cfg.WebUIPort,
+		ContinuousActiveLimit:       cfg.ContinuousActiveLimit.String(),
+		IdleDurationToConsiderBreak: cfg.IdleDurationToConsiderBreak.String(),
+		NotificationInitialBackoff:  cfg.NotificationInitialBackoff.String(),
+		WebUIPort:                   cfg.WebUIPort,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -132,11 +130,6 @@ func (s *Server) handlePostConfig(w http.ResponseWriter, r *http.Request) {
 	if req.IdleDurationToConsiderBreak != "" {
 		if d, err := time.ParseDuration(req.IdleDurationToConsiderBreak); err == nil {
 			cfg.IdleDurationToConsiderBreak = d
-		}
-	}
-	if req.KeyboardMouseInputPollInterval != "" {
-		if d, err := time.ParseDuration(req.KeyboardMouseInputPollInterval); err == nil {
-			cfg.KeyboardMouseInputPollInterval = d
 		}
 	}
 	if req.NotificationInitialBackoff != "" {

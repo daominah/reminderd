@@ -7,12 +7,17 @@ import (
 	"time"
 )
 
+// PollInterval is how often the app checks for keyboard/mouse activity.
+// This is a fixed constant, not user-configurable, because log compaction
+// uses it to detect gaps between entries.
+const PollInterval = 10 * time.Second
+
 // Default values used when no ConfigStore is provided.
 const (
-	ContinuousActiveLimit = 60 * time.Minute
-	IdleThreshold         = 2 * time.Minute
-	InitialBackoff        = 5 * time.Minute
-	PollInterval          = 10 * time.Second
+	DefaultContinuousActiveLimit       = 45 * time.Minute
+	DefaultIdleDurationToConsiderBreak = 2 * time.Minute
+	DefaultNotificationInitialBackoff  = 5 * time.Minute
+	DefaultWebUIPort                   = 20902
 )
 
 // UserInputTracker monitors user input and sends break reminders.
@@ -43,28 +48,21 @@ func (t *UserInputTracker) activeLimit() time.Duration {
 	if t.config.ContinuousActiveLimit > 0 {
 		return t.config.ContinuousActiveLimit
 	}
-	return ContinuousActiveLimit
+	return DefaultContinuousActiveLimit
 }
 
 func (t *UserInputTracker) idleThreshold() time.Duration {
 	if t.config.IdleDurationToConsiderBreak > 0 {
 		return t.config.IdleDurationToConsiderBreak
 	}
-	return IdleThreshold
+	return DefaultIdleDurationToConsiderBreak
 }
 
 func (t *UserInputTracker) initialBackoff() time.Duration {
 	if t.config.NotificationInitialBackoff > 0 {
 		return t.config.NotificationInitialBackoff
 	}
-	return InitialBackoff
-}
-
-func (t *UserInputTracker) pollInterval() time.Duration {
-	if t.config.KeyboardMouseInputPollInterval > 0 {
-		return t.config.KeyboardMouseInputPollInterval
-	}
-	return PollInterval
+	return DefaultNotificationInitialBackoff
 }
 
 // Run polls the idle detector on an interval until the context is cancelled.
@@ -80,13 +78,13 @@ func (t *UserInputTracker) Run(ctx context.Context) error {
 	t.restoreActiveStart()
 
 	log.Printf("reminderd started (activeLimit=%s, idleThreshold=%s, poll=%s)",
-		t.activeLimit(), t.idleThreshold(), t.pollInterval())
+		t.activeLimit(), t.idleThreshold(), PollInterval)
 	if idle, err := t.IdleDetector.IdleSeconds(); err == nil {
 		lastInput := t.timeNow().Add(-time.Duration(idle * float64(time.Second)))
 		log.Printf("last input: %s (idle %.0fs)", lastInput.Format("15:04:05"), idle)
 	}
 
-	ticker := time.NewTicker(t.pollInterval())
+	ticker := time.NewTicker(PollInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -245,9 +243,8 @@ func (t *UserInputTracker) reloadConfigIfChanged() {
 		return
 	}
 	if changed {
-		log.Printf("config reloaded (activeLimit=%s, idleThreshold=%s, poll=%s)",
-			cfg.ContinuousActiveLimit, cfg.IdleDurationToConsiderBreak,
-			cfg.KeyboardMouseInputPollInterval)
+		log.Printf("config reloaded (activeLimit=%s, idleThreshold=%s)",
+			cfg.ContinuousActiveLimit, cfg.IdleDurationToConsiderBreak)
 		t.config = cfg
 	}
 }

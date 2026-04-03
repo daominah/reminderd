@@ -12,20 +12,18 @@ import (
 // configJSON is the JSON-friendly representation of logic.Config.
 // Durations are stored as human-readable strings (e.g. "60m", "10s").
 type configJSON struct {
-	ContinuousActiveLimit          string `json:"ContinuousActiveLimit"`
-	IdleDurationToConsiderBreak    string `json:"IdleDurationToConsiderBreak"`
-	KeyboardMouseInputPollInterval string `json:"KeyboardMouseInputPollInterval"`
-	NotificationInitialBackoff     string `json:"NotificationInitialBackoff"`
-	WebUIPort                      int    `json:"WebUIPort"`
+	ContinuousActiveLimit       string `json:"ContinuousActiveLimit"`
+	IdleDurationToConsiderBreak string `json:"IdleDurationToConsiderBreak"`
+	NotificationInitialBackoff  string `json:"NotificationInitialBackoff"`
+	WebUIPort                   int    `json:"WebUIPort"`
 }
 
 func toJSON(cfg logic.Config) configJSON {
 	return configJSON{
-		ContinuousActiveLimit:          cfg.ContinuousActiveLimit.String(),
-		IdleDurationToConsiderBreak:    cfg.IdleDurationToConsiderBreak.String(),
-		KeyboardMouseInputPollInterval: cfg.KeyboardMouseInputPollInterval.String(),
-		NotificationInitialBackoff:     cfg.NotificationInitialBackoff.String(),
-		WebUIPort:                      cfg.WebUIPort,
+		ContinuousActiveLimit:       cfg.ContinuousActiveLimit.String(),
+		IdleDurationToConsiderBreak: cfg.IdleDurationToConsiderBreak.String(),
+		NotificationInitialBackoff:  cfg.NotificationInitialBackoff.String(),
+		WebUIPort:                   cfg.WebUIPort,
 	}
 }
 
@@ -40,10 +38,6 @@ func fromJSON(j configJSON) (logic.Config, error) {
 	cfg.IdleDurationToConsiderBreak, err = time.ParseDuration(j.IdleDurationToConsiderBreak)
 	if err != nil {
 		return cfg, fmt.Errorf("error parsing IdleDurationToConsiderBreak: %w", err)
-	}
-	cfg.KeyboardMouseInputPollInterval, err = time.ParseDuration(j.KeyboardMouseInputPollInterval)
-	if err != nil {
-		return cfg, fmt.Errorf("error parsing KeyboardMouseInputPollInterval: %w", err)
 	}
 	cfg.NotificationInitialBackoff, err = time.ParseDuration(j.NotificationInitialBackoff)
 	if err != nil {

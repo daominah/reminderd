@@ -22,7 +22,7 @@ func TestTick_NoReminderBeforeThreshold(t *testing.T) {
 	}
 
 	// WHEN we tick for just under the limit
-	for range ticksFor(ContinuousActiveLimit) - 2 {
+	for range ticksFor(DefaultContinuousActiveLimit) - 2 {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -45,7 +45,7 @@ func TestTick_ReminderAtThreshold(t *testing.T) {
 	}
 
 	// WHEN the user is active for exactly the limit
-	for range ticksFor(ContinuousActiveLimit) {
+	for range ticksFor(DefaultContinuousActiveLimit) {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -72,7 +72,7 @@ func TestTick_ExponentialBackoff(t *testing.T) {
 	}
 
 	// Tick past the limit to trigger the first reminder.
-	for range ticksFor(ContinuousActiveLimit) + 1 {
+	for range ticksFor(DefaultContinuousActiveLimit) + 1 {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -81,7 +81,7 @@ func TestTick_ExponentialBackoff(t *testing.T) {
 	}
 
 	// WHEN the first backoff interval passes
-	for range ticksFor(InitialBackoff) {
+	for range ticksFor(DefaultNotificationInitialBackoff) {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -92,7 +92,7 @@ func TestTick_ExponentialBackoff(t *testing.T) {
 	}
 
 	// WHEN the second backoff interval passes (2x initial)
-	for range ticksFor(InitialBackoff * 2) {
+	for range ticksFor(DefaultNotificationInitialBackoff * 2) {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -114,14 +114,14 @@ func TestTick_IdleResetsTimer(t *testing.T) {
 		TimeNow:      func() time.Time { return now },
 	}
 
-	almostLimit := ticksFor(ContinuousActiveLimit) - 20
+	almostLimit := ticksFor(DefaultContinuousActiveLimit) - 20
 	for range almostLimit {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
 
 	// WHEN the user goes idle for the idle threshold
-	idle.Seconds = IdleThreshold.Seconds()
+	idle.Seconds = DefaultIdleDurationToConsiderBreak.Seconds()
 	tracker.Tick()
 	now = now.Add(PollInterval)
 
@@ -149,7 +149,7 @@ func TestTick_IdleResetsAfterReminder(t *testing.T) {
 		TimeNow:      func() time.Time { return now },
 	}
 
-	for range ticksFor(ContinuousActiveLimit) + 1 {
+	for range ticksFor(DefaultContinuousActiveLimit) + 1 {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -158,13 +158,13 @@ func TestTick_IdleResetsAfterReminder(t *testing.T) {
 	}
 
 	// WHEN the user takes a break
-	idle.Seconds = IdleThreshold.Seconds()
+	idle.Seconds = DefaultIdleDurationToConsiderBreak.Seconds()
 	tracker.Tick()
 	now = now.Add(PollInterval)
 
 	// AND works for another full session
 	idle.Seconds = 0
-	for range ticksFor(ContinuousActiveLimit) + 1 {
+	for range ticksFor(DefaultContinuousActiveLimit) + 1 {
 		tracker.Tick()
 		now = now.Add(PollInterval)
 	}
@@ -223,7 +223,7 @@ func TestTick_WritesIdleHistoryEntryOnBreak(t *testing.T) {
 	}
 
 	// AND then goes idle past the threshold
-	idle.Seconds = IdleThreshold.Seconds()
+	idle.Seconds = DefaultIdleDurationToConsiderBreak.Seconds()
 	tracker.Tick()
 	now = now.Add(PollInterval)
 
@@ -245,11 +245,10 @@ func TestTick_UsesConfigForThresholds(t *testing.T) {
 	shortLimit := 1 * time.Minute
 	configStore := &MockConfigStore{
 		Cfg: Config{
-			ContinuousActiveLimit:          shortLimit,
-			IdleDurationToConsiderBreak:    2 * time.Minute,
-			KeyboardMouseInputPollInterval: PollInterval,
-			NotificationInitialBackoff:     5 * time.Minute,
-			WebUIPort:                      20902,
+			ContinuousActiveLimit:       shortLimit,
+			IdleDurationToConsiderBreak: DefaultIdleDurationToConsiderBreak,
+			NotificationInitialBackoff:  DefaultNotificationInitialBackoff,
+			WebUIPort:                   DefaultWebUIPort,
 		},
 		Changed: true,
 	}
@@ -280,11 +279,10 @@ func TestTick_ConfigHotReload(t *testing.T) {
 	notifier := &MockNotifier{}
 	configStore := &MockConfigStore{
 		Cfg: Config{
-			ContinuousActiveLimit:          ContinuousActiveLimit,
-			IdleDurationToConsiderBreak:    IdleThreshold,
-			KeyboardMouseInputPollInterval: PollInterval,
-			NotificationInitialBackoff:     InitialBackoff,
-			WebUIPort:                      20902,
+			ContinuousActiveLimit:       DefaultContinuousActiveLimit,
+			IdleDurationToConsiderBreak: DefaultIdleDurationToConsiderBreak,
+			NotificationInitialBackoff:  DefaultNotificationInitialBackoff,
+			WebUIPort:                   DefaultWebUIPort,
 		},
 		Changed: false,
 	}
