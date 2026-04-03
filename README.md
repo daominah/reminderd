@@ -5,6 +5,16 @@ and reminds you to take a break.
 
 The generic service name leaves room for other reminder types in the future.
 
+## Usage
+
+```bash
+# Build
+go build -o reminderd ./cmd/reminderd
+
+# Run in background
+./reminderd &
+```
+
 ## How it works
 
 - Polls the OS for the time since the last keyboard/mouse event.
@@ -57,16 +67,6 @@ only the first and last record of each consecutive state run are kept.
 
 History is kept forever. Estimated storage:
 ~300 KB/year (compacted), ~42 MB/year (uncompacted, 10s poll, 8h/day).
-
-## Usage
-
-```bash
-# Build
-go build -o reminderd ./cmd/reminderd
-
-# Run in background
-./reminderd &
-```
 
 ## Design
 
