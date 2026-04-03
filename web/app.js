@@ -91,12 +91,15 @@ function renderChart(entries, label, rangeStartMs, rangeEndMs) {
   const spanHours = spanMs / 3600000;
 
   let bucketMs;
-  if (spanHours <= 0.25) bucketMs = 10000;
-  else if (spanHours <= 1) bucketMs = 60000;
-  else if (spanHours <= 6) bucketMs = 600000;
-  else if (spanHours <= 48) bucketMs = 3600000;
-  else if (spanHours <= 720) bucketMs = 86400000;
-  else bucketMs = 7 * 86400000;
+  if (spanHours <= 1) bucketMs = 60000;              // 1m bars for 1h (60 bars)
+  else if (spanHours <= 4) bucketMs = 5 * 60000;     // 5m bars for 4h (48 bars)
+  else if (spanHours <= 12) bucketMs = 15 * 60000;   // 15m bars for 12h (48 bars)
+  else if (spanHours <= 24) bucketMs = 30 * 60000;   // 30m bars for 24h (48 bars)
+  else if (spanHours <= 48) bucketMs = 3600000;       // 1h bars for 2d (48 bars)
+  else if (spanHours <= 168) bucketMs = 4 * 3600000;  // 4h bars for 7d (42 bars)
+  else if (spanHours <= 720) bucketMs = 12 * 3600000; // 12h bars for 30d (60 bars)
+  else if (spanHours <= 4380) bucketMs = 3 * 86400000; // 3d bars for 6m (60 bars)
+  else bucketMs = 7 * 86400000;                        // 7d bars for 1y (52 bars)
 
   const vnOffsetMs = 7 * 60 * 60000;
   const gridStart = alignedStart(rangeStartMs, bucketMs, vnOffsetMs);
