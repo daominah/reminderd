@@ -83,16 +83,16 @@ func TestCompactPrevious_KeepsFirstAndLastOfRuns(t *testing.T) {
 	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(nextDay), State: logic.Active})
 	store.CompactPrevious()
 
-	// THEN the 2026-04-02 file has 4 lines:
-	// first active, last active, first idle, last idle
+	// THEN the 2026-04-02 file has 2 lines:
+	// 1 compact ACTIVE entry, 1 compact IDLE entry
 	path := filepath.Join(dir, "history-2026-04-02.jsonl")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read compacted file: %v", err)
 	}
 	lines := countLines(data)
-	if lines != 4 {
-		t.Errorf("expected 4 lines after compaction, got %d", lines)
+	if lines != 2 {
+		t.Errorf("expected 2 lines after compaction, got %d", lines)
 	}
 }
 

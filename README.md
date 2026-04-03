@@ -75,27 +75,41 @@ TODO: allow user to customize notification content.
 
 ### Log Compaction
 
-`CompactHistory` keeps only the first and last entry of each consecutive same-state run.
+`CompactHistory` collapses each consecutive same-state run into one entry
+with `IsCompact: true` and `TimeCompactEnd` set.
+If the gap between two adjacent entries exceeds 2x PollInterval (20s),
+the run is split (gap detection).
 
 ```mermaid
-flowchart LR
-    A["Raw\nentries"] --> B["For each consecutive\nsame-state run"]
-    B --> C{"Run length\n> 1?"}
-    C -- yes --> D["Keep first\n+ last"]
-    C -- no --> E["Keep the\nsingle entry"]
-    D --> F["Compacted\nentries"]
+flowchart TD
+    A["Raw entries"] --> B["Group consecutive\nsame-state entries"]
+    B --> C{"Gap > 2x\nPollInterval?"}
+    C -- yes --> D["Split into\nseparate runs"]
+    C -- no --> E["Same run"]
+    D --> F{"Run length\n> 1?"}
     E --> F
+    F -- yes --> G["1 entry:\nIsCompact=true\nTime=first, TimeCompactEnd=last"]
+    F -- no --> H["1 entry:\nkept as-is"]
 ```
 
 ### User Activity State
 
-Each entry's state lasts until the next entry (state-boundary model).
-Works identically on raw and compacted logs.
+A compact entry covers `Time` to `TimeCompactEnd` (self-describing).
+A raw entry's state lasts until the next entry.
+Gaps between entries are uncovered time (not counted as active or idle).
 
 ```mermaid
-flowchart LR
-    Q["Query: state\nat time T"] --> S["Find latest entry\nwhere timestamp <= T"]
-    S --> R["That entry's\nState is the answer"]
+flowchart TD
+    Q["Query: state\nat time T"] --> F["Find latest entry\nwhere Time <= T"]
+    F --> C{"Found?"}
+    C -- no --> R0["IDLE (gap)"]
+    C -- yes --> D{"Has\nTimeCompactEnd?"}
+    D -- yes --> E1{"T <= TimeCompactEnd?"}
+    E1 -- yes --> R1["Entry's State"]
+    E1 -- no --> R0
+    D -- no --> E2{"T < next\nentry's Time?"}
+    E2 -- yes --> R2["Entry's State"]
+    E2 -- no --> R0
 ```
 
 ## Design
