@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// New returns the platform notifier for Windows (toast notification).
+func New() ToastNotifier { return ToastNotifier{} }
+
 // ToastNotifier sends persistent Windows 10/11 toast notifications
 // that remain in the Action Center until the user dismisses them.
 // Windows silently drops toasts from unregistered app IDs, so we borrow

@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// New returns the platform notifier for macOS.
+func New() *OSNotifier { return &OSNotifier{} }
+
 // OSNotifier sends notifications via macOS osascript.
 type OSNotifier struct{}
 
