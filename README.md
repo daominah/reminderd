@@ -18,23 +18,30 @@ go build -o reminderd ./cmd/reminderd
 ## How it works
 
 - Polls the OS for the time since the last keyboard/mouse event.
-- If you are continuously active for 60 minutes by default,
-  it sends a desktop notification.
-- After the reminder, if the user keeps working, remind again with
+- If you are continuously active for 60 minutes, it sends a desktop notification.
+- After the reminder, if you keep working, it reminds again with
   exponential backoff: 5m, 10m, 20m, ...
-- The timer resets once you actually take a break (2 minutes of no input).
+- The timer resets once you take a break (2 minutes of no input).
 - Records activity history to daily files in `~/.reminderd/`.
-- Serves a web UI with activity chart and settings at <http://localhost:20902>.
-
-## Platforms
-
-- macOS 13 Ventura (Core Graphics API)
-- Windows 10/11 (`GetLastInputInfo` from user32.dll)
-- Linux Mint 22.3 "Zena" (X11, `XScreenSaverQueryInfo`)
+- Serves a web UI with an activity chart and settings at <http://localhost:20902>.
 
 ## Web UI
 
-Open <http://localhost:20902> in a browser. The web UI has two tabs:
+Open <http://localhost:20902> in a browser. The web UI has three tabs:
+
+### Activity History
+
+A bar chart showing when you were active or idle.
+You can choose a time range (Last 1h, 4h, 12h, 24h, 2d, 7d, 30d, 6m, 1y, all time).
+Example summary: Last 4h | Active: 2h32m (63%) | Reminders: 2
+Hover over any bar to see the active/total duration breakdown.
+
+Activity is recorded to daily files in `~/.reminderd/` (e.g. `history-2026-04-03.jsonl`).
+At daily rollover, the previous day's file is compacted:
+only the first and last record of each consecutive state run are kept.
+
+History is kept forever. Estimated storage:
+~300 KB/year (compacted), ~42 MB/year (uncompacted, 10s poll, 8h/day).
 
 ### Configuration
 
@@ -55,19 +62,11 @@ On first run, the app creates `~/.reminderd/config.json` with defaults:
 }
 ```
 
-### User activity history
+### Notification
 
-A bar chart showing when you were active or idle.
-You can choose a time range (Last 1h, 4h, 12h, 24h, 2d, 7d, 30d, 6m, 1y, all time).
-Example summary: Last 4h | Active: 2h32m (63%) | Reminders: 2
-Hover over any bar to see the active/total duration breakdown.
+Send a test notification to verify that desktop alerts are working on your system.
 
-Activity is recorded to daily files in `~/.reminderd/` (e.g. `history-2026-04-03.jsonl`).
-At daily rollover, the previous day's file is compacted:
-only the first and last record of each consecutive state run are kept.
-
-History is kept forever. Estimated storage:
-~300 KB/year (compacted), ~42 MB/year (uncompacted, 10s poll, 8h/day).
+TODO: allow user to customize notification content.
 
 ## Design
 
@@ -75,10 +74,8 @@ History is kept forever. Estimated storage:
 graph TD
     K["main.go"] -->|startup| A
     K -->|startup| F
-
     A[UserInputTracker] -->|reload config, write history, restore active start| S
     A -->|break reminder| N[Notifier]
-
     F[HTTP Server] -->|read history, read/write config| S
 
     subgraph S ["~/.reminderd/"]
@@ -87,9 +84,11 @@ graph TD
     end
 ```
 
-## TODO
+## Platforms
 
-- Test desktop notification on Windows.
+- [x] Windows 10/11 (`GetLastInputInfo` from user32.dll)
+- [x] macOS 13 Ventura (Core Graphics API)
+- [ ] Linux Mint 22.3 "Zena" (X11, `XScreenSaverQueryInfo`, `notify-send`) — implemented, not tested
 
 ## Roadmap
 
