@@ -70,6 +70,20 @@ go build -o reminderd ./cmd/reminderd
 
 ## Design
 
+```mermaid
+graph TD
+    K["cmd/reminderd/main.go"] -->|startup| A
+    K -->|startup| F
+
+    A[UserInputTracker] -->|reload config on file change, write history| S
+    F[HTTP Server] -->|read history, read/write config| S
+
+    subgraph S ["~/.reminderd/"]
+        C["config.json"]
+        D["history-YYYY-MM-DD.jsonl"]
+    end
+```
+
 ### Components
 
 1. **Idle detector** (`pkg/driver/userinput/`, per-platform):
