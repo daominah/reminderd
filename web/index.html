@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>reminderd</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>reminderd</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h1>reminderd</h1>
 
+<div>
+  Your activity is detected based on keyboard/mouse input.
+</div>
+
 <div class="tabs">
   <button class="tab active" onclick="switchTab('history')">Activity History</button>
   <button class="tab" onclick="switchTab('config')">Configuration</button>
+  <button class="tab" onclick="switchTab('notification')">Notification</button>
 </div>
 
 <div id="tab-history" class="tab-content active">
@@ -28,12 +33,18 @@
     <button onclick="quickRange(0)" data-range="0">All time</button>
   </div>
   <div id="summary" class="summary"></div>
-  <div id="chart"><canvas id="canvas"></canvas><div class="tooltip" id="tooltip"></div></div>
+  <div id="chart">
+    <canvas id="canvas"></canvas>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
 </div>
 
 <div id="tab-config" class="tab-content">
   <div class="config-section" id="configSection"></div>
-  <button class="save-btn" style="margin-top: 24px" onclick="testNotification()">Test Notification</button>
+</div>
+
+<div id="tab-notification" class="tab-content">
+  <button class="save-btn" onclick="testNotification()">Send Test Notification</button>
   <span id="testResult" class="status"></span>
 </div>
 

@@ -145,7 +145,7 @@ func (t *UserInputTracker) Tick() {
 
 	// Active for >= threshold, check if we should remind.
 	if !t.isReminded {
-		if !t.sendReminder(activeDuration) {
+		if !t.SendReminder(activeDuration) {
 			return
 		}
 		t.isReminded = true
@@ -160,16 +160,16 @@ func (t *UserInputTracker) Tick() {
 		return
 	}
 
-	if !t.sendReminder(activeDuration) {
+	if !t.SendReminder(activeDuration) {
 		return
 	}
 	t.lastReminderTime = now
 	t.reminderCount++
 }
 
-func (t *UserInputTracker) sendReminder(activeDuration time.Duration) bool {
+func (t *UserInputTracker) SendReminder(activeDuration time.Duration) bool {
 	msg := fmt.Sprintf(
-		"You have been active for %s. Take a break!",
+		"You've been sitting at the computer for %s. Walk away, make a coffee!",
 		formatDuration(activeDuration),
 	)
 	if err := t.Notifier.Notify("Sat Too Long, Take a Break", msg); err != nil {

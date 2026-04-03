@@ -7,15 +7,15 @@ function switchTab(name) {
 
 const configFields = [
   {key: "ContinuousActiveLimit", label: "Active limit",
-   tip: "How long you can work before getting a break reminder. Example: 1h, 45m"},
+   tip: "How long you can work before getting a break reminder. Focus drops and strain builds after 30m to 1h."},
   {key: "IdleDurationToConsiderBreak", label: "Idle threshold",
-   tip: "How long you must be idle for it to count as a break. Example: 2m, 5m"},
+   tip: "How long you must be idle for it to count as a break. Even 2m to 5m of rest reduces eye strain and muscle tension."},
   {key: "KeyboardMouseInputPollInterval", label: "Poll interval",
-   tip: "How often the app checks for keyboard/mouse activity. Example: 10s, 30s"},
+   tip: "How often the app checks for keyboard/mouse activity. Lower values are more accurate but use slightly more CPU. 10s is a good balance."},
   {key: "NotificationInitialBackoff", label: "Initial backoff",
-   tip: "Delay before the second reminder if you keep working. Doubles each time. Example: 5m"},
+   tip: "Delay before the second reminder if you keep working. Doubles each time (5m, 10m, 20m). Persistent nudges help because we tend to dismiss the first one."},
   {key: "WebUIPort", label: "Web UI port",
-   tip: "Port number for this web page. Requires restart to take effect. Example: 20902"},
+   tip: "Port number for this web page. Requires restart to take effect."},
 ];
 
 let currentRangeMinutes = parseInt(localStorage.getItem("rangeMinutes")) || 720;

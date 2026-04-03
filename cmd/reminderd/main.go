@@ -65,7 +65,6 @@ func main() {
 	tracker.HistoryReader = historyStore
 
 	srv := httpsvr.NewServer(configStore, historyStore, frontendFS, cfg.WebUIPort)
-	srv.Notifier = notifier
 	srv.Tracker = tracker
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {

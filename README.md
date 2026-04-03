@@ -1,7 +1,7 @@
 # reminderd
 
 A background daemon that monitors mouse/keyboard input
-and reminds you to take a break.
+and **reminds you to take a break after sitting for too long**.
 
 The generic service name leaves room for other reminder types in the future.
 

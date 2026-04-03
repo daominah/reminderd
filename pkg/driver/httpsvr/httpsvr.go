@@ -17,7 +17,6 @@ var vnTimezone = time.FixedZone("ICT", 7*60*60)
 type Server struct {
 	ConfigStore   logic.ConfigStore
 	HistoryReader logic.HistoryReader
-	Notifier      logic.Notifier
 	Tracker       *logic.UserInputTracker
 	FrontendFS    fs.FS
 	Port          int
@@ -160,36 +159,16 @@ func (s *Server) handlePostConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) {
-	if s.Notifier == nil {
-		http.Error(w, "notifier not available", http.StatusServiceUnavailable)
+	if s.Tracker == nil {
+		http.Error(w, "tracker not available", http.StatusServiceUnavailable)
 		return
 	}
 
-	var activeDuration time.Duration
-	if s.Tracker != nil {
-		activeDuration = s.Tracker.ActiveDuration()
-	}
-
-	title := "Sat Too Long, Take a Break"
-	msg := fmt.Sprintf("You have been active for %s. Take a break!",
-		formatActiveDuration(activeDuration))
-	s.Notifier.Notify(title, msg)
+	activeDuration := s.Tracker.ActiveDuration()
+	s.Tracker.SendReminder(activeDuration)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"activeDuration": formatActiveDuration(activeDuration),
+		"activeDuration": activeDuration.String(),
 	})
-}
-
-func formatActiveDuration(d time.Duration) string {
-	d = d.Round(time.Minute)
-	h := int(d.Hours())
-	m := int(d.Minutes()) % 60
-	if h > 0 && m > 0 {
-		return fmt.Sprintf("%dh%dm", h, m)
-	}
-	if h > 0 {
-		return fmt.Sprintf("%dh", h)
-	}
-	return fmt.Sprintf("%dm", m)
 }
