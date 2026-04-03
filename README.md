@@ -75,7 +75,6 @@ graph TD
     K["main.go"] -->|startup| A
     K -->|startup| F
 
-    I[IdleDetector] -->|idle seconds| A
     A[UserInputTracker] -->|reload config, write history, restore active start| S
     A -->|break reminder| N[Notifier]
 
