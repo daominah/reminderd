@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/daominah/reminderd/pkg/model"
+	"github.com/daominah/reminderd/pkg/logic"
 )
 
-// configJSON is the JSON-friendly representation of model.Config.
+// configJSON is the JSON-friendly representation of logic.Config.
 // Durations are stored as human-readable strings (e.g. "60m", "10s").
 type configJSON struct {
 	ContinuousActiveLimit          string `json:"ContinuousActiveLimit"`
@@ -19,7 +19,7 @@ type configJSON struct {
 	WebUIPort                      int    `json:"WebUIPort"`
 }
 
-func toJSON(cfg model.Config) configJSON {
+func toJSON(cfg logic.Config) configJSON {
 	return configJSON{
 		ContinuousActiveLimit:          cfg.ContinuousActiveLimit.String(),
 		IdleDurationToConsiderBreak:    cfg.IdleDurationToConsiderBreak.String(),
@@ -29,8 +29,8 @@ func toJSON(cfg model.Config) configJSON {
 	}
 }
 
-func fromJSON(j configJSON) (model.Config, error) {
-	var cfg model.Config
+func fromJSON(j configJSON) (logic.Config, error) {
+	var cfg logic.Config
 	var err error
 
 	cfg.ContinuousActiveLimit, err = time.ParseDuration(j.ContinuousActiveLimit)
@@ -66,8 +66,8 @@ func NewFileConfigStore(path string) *FileConfigStore {
 // Load reads config from the file, merges missing fields with defaults,
 // and writes the full config back. If the file does not exist, it is
 // created with default values.
-func (s *FileConfigStore) Load() (model.Config, error) {
-	defaults := model.DefaultConfig()
+func (s *FileConfigStore) Load() (logic.Config, error) {
+	defaults := logic.DefaultConfig()
 	defaultJSON := toJSON(defaults)
 
 	data, err := os.ReadFile(s.Path)
@@ -103,23 +103,23 @@ func (s *FileConfigStore) Load() (model.Config, error) {
 
 // LoadIfChanged checks the file modification time and reloads only if changed.
 // Returns the config, whether it changed, and any error.
-func (s *FileConfigStore) LoadIfChanged() (model.Config, bool, error) {
+func (s *FileConfigStore) LoadIfChanged() (logic.Config, bool, error) {
 	info, err := os.Stat(s.Path)
 	if err != nil {
-		return model.DefaultConfig(), false, fmt.Errorf("error os.Stat config: %w", err)
+		return logic.DefaultConfig(), false, fmt.Errorf("error os.Stat config: %w", err)
 	}
 	if !info.ModTime().After(s.lastModTime) {
-		return model.Config{}, false, nil
+		return logic.Config{}, false, nil
 	}
 	cfg, err := s.Load()
 	if err != nil {
-		return model.DefaultConfig(), false, err
+		return logic.DefaultConfig(), false, err
 	}
 	return cfg, true, nil
 }
 
 // Save writes the config to the file with indented JSON.
-func (s *FileConfigStore) Save(cfg model.Config) error {
+func (s *FileConfigStore) Save(cfg logic.Config) error {
 	j := toJSON(cfg)
 	data, err := json.MarshalIndent(j, "", "\t")
 	if err != nil {

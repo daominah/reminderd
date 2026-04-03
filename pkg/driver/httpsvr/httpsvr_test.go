@@ -11,7 +11,6 @@ import (
 
 	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/logic"
-	"github.com/daominah/reminderd/pkg/model"
 )
 
 var testFS = fstest.MapFS{
@@ -21,7 +20,7 @@ var testFS = fstest.MapFS{
 func TestGetIndex_ReturnsHTML(t *testing.T) {
 	// GIVEN an HTTP server
 	srv := NewServer(
-		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
+		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
 		&logic.MockHistoryReader{},
 		testFS,
 		20902,
@@ -44,12 +43,12 @@ func TestGetIndex_ReturnsHTML(t *testing.T) {
 
 func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 	// GIVEN a server with history entries
-	entries := []model.HistoryEntry{
-		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, base.VietnamTimezone)), State: model.Active},
-		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, base.VietnamTimezone)), State: model.Idle},
+	entries := []logic.HistoryEntry{
+		{Time: logic.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, base.VietnamTimezone)), State: logic.Active},
+		{Time: logic.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, base.VietnamTimezone)), State: logic.Idle},
 	}
 	srv := NewServer(
-		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
+		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
 		&logic.MockHistoryReader{Entries: entries},
 		testFS,
 		20902,
@@ -64,7 +63,7 @@ func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", rec.Code)
 	}
-	var result []model.HistoryEntry
+	var result []logic.HistoryEntry
 	if err := json.NewDecoder(rec.Body).Decode(&result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -75,11 +74,11 @@ func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 
 func TestGetAPIHistory_AcceptsTimeRange(t *testing.T) {
 	// GIVEN a server with history entries
-	entries := []model.HistoryEntry{
-		{Time: model.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)), State: model.Active},
+	entries := []logic.HistoryEntry{
+		{Time: logic.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)), State: logic.Active},
 	}
 	srv := NewServer(
-		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
+		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
 		&logic.MockHistoryReader{Entries: entries},
 		testFS,
 		20902,
@@ -99,7 +98,7 @@ func TestGetAPIHistory_AcceptsTimeRange(t *testing.T) {
 
 func TestGetAPIConfig_ReturnsCurrentConfig(t *testing.T) {
 	// GIVEN a server with a config store
-	cfg := model.DefaultConfig()
+	cfg := logic.DefaultConfig()
 	cfg.WebUIPort = 9999
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: cfg},
@@ -132,7 +131,7 @@ func TestGetAPIConfig_ReturnsCurrentConfig(t *testing.T) {
 
 func TestPostAPIConfig_UpdatesConfig(t *testing.T) {
 	// GIVEN a server with a config store
-	configStore := &logic.MockConfigStore{Cfg: model.DefaultConfig()}
+	configStore := &logic.MockConfigStore{Cfg: logic.DefaultConfig()}
 	srv := NewServer(configStore, &logic.MockHistoryReader{}, testFS, 20902)
 
 	// WHEN POST /api/config is called with new values

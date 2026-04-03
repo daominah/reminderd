@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/daominah/reminderd/pkg/model"
+	"github.com/daominah/reminderd/pkg/logic"
 )
 
 func TestLoad_CreatesDefaultFileWhenMissing(t *testing.T) {
@@ -26,7 +26,7 @@ func TestLoad_CreatesDefaultFileWhenMissing(t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("expected config file to be created: %v", err)
 	}
-	expected := model.DefaultConfig()
+	expected := logic.DefaultConfig()
 	if cfg.ContinuousActiveLimit != expected.ContinuousActiveLimit {
 		t.Errorf("expected ContinuousActiveLimit %v, got %v",
 			expected.ContinuousActiveLimit, cfg.ContinuousActiveLimit)
@@ -57,7 +57,7 @@ func TestLoad_MergesMissingFieldsWithDefaults(t *testing.T) {
 	}
 
 	// AND missing fields get defaults
-	expected := model.DefaultConfig()
+	expected := logic.DefaultConfig()
 	if cfg.ContinuousActiveLimit != expected.ContinuousActiveLimit {
 		t.Errorf("expected ContinuousActiveLimit %v, got %v",
 			expected.ContinuousActiveLimit, cfg.ContinuousActiveLimit)
@@ -126,7 +126,7 @@ func TestSave_WritesConfigToFile(t *testing.T) {
 	store := NewFileConfigStore(path)
 
 	// WHEN a config is saved
-	cfg := model.DefaultConfig()
+	cfg := logic.DefaultConfig()
 	cfg.WebUIPort = 12345
 	err := store.Save(cfg)
 	if err != nil {

@@ -3,8 +3,6 @@ package logic
 import (
 	"testing"
 	"time"
-
-	"github.com/daominah/reminderd/pkg/model"
 )
 
 // ticksFor returns how many poll ticks fit in the given duration.
@@ -200,8 +198,8 @@ func TestTick_WritesActiveHistoryEntry(t *testing.T) {
 		t.Fatalf("expected 3 history entries, got %d", len(history.Entries))
 	}
 	for i, e := range history.Entries {
-		if e.State != model.Active {
-			t.Errorf("entry %d: expected state %q, got %q", i, model.Active, e.State)
+		if e.State != Active {
+			t.Errorf("entry %d: expected state %q, got %q", i, Active, e.State)
 		}
 	}
 }
@@ -234,8 +232,8 @@ func TestTick_WritesIdleHistoryEntryOnBreak(t *testing.T) {
 		t.Fatalf("expected at least 3 history entries, got %d", len(history.Entries))
 	}
 	last := history.Entries[len(history.Entries)-1]
-	if last.State != model.Idle {
-		t.Errorf("expected last entry state %q, got %q", model.Idle, last.State)
+	if last.State != Idle {
+		t.Errorf("expected last entry state %q, got %q", Idle, last.State)
 	}
 }
 
@@ -246,7 +244,7 @@ func TestTick_UsesConfigForThresholds(t *testing.T) {
 	notifier := &MockNotifier{}
 	shortLimit := 1 * time.Minute
 	configStore := &MockConfigStore{
-		Cfg: model.Config{
+		Cfg: Config{
 			ContinuousActiveLimit:          shortLimit,
 			IdleDurationToConsiderBreak:    2 * time.Minute,
 			KeyboardMouseInputPollInterval: PollInterval,
@@ -281,7 +279,7 @@ func TestTick_ConfigHotReload(t *testing.T) {
 	idle := &MockIdleDetector{Seconds: 0}
 	notifier := &MockNotifier{}
 	configStore := &MockConfigStore{
-		Cfg: model.Config{
+		Cfg: Config{
 			ContinuousActiveLimit:          ContinuousActiveLimit,
 			IdleDurationToConsiderBreak:    IdleThreshold,
 			KeyboardMouseInputPollInterval: PollInterval,
@@ -322,11 +320,11 @@ func TestRestoreActiveStart_ResumesFromHistory(t *testing.T) {
 	// GIVEN a history with an active session that started at 08:00
 	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
 	historyReader := &MockHistoryReader{
-		Entries: []model.HistoryEntry{
-			{Time: model.FormatTime(time.Date(2026, 1, 1, 7, 0, 0, 0, time.UTC)), State: model.Active},
-			{Time: model.FormatTime(time.Date(2026, 1, 1, 7, 30, 0, 0, time.UTC)), State: model.Idle},
-			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: model.Active},
-			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 50, 0, 0, time.UTC)), State: model.Active},
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 30, 0, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 50, 0, 0, time.UTC)), State: Active},
 		},
 	}
 	tracker := &UserInputTracker{
@@ -357,9 +355,9 @@ func TestRestoreActiveStart_NoRestoreWhenLastEntryIsIdle(t *testing.T) {
 	// GIVEN a history where the last entry is idle
 	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
 	historyReader := &MockHistoryReader{
-		Entries: []model.HistoryEntry{
-			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: model.Active},
-			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 30, 0, 0, time.UTC)), State: model.Idle},
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 30, 0, 0, time.UTC)), State: Idle},
 		},
 	}
 	tracker := &UserInputTracker{

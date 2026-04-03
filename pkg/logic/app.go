@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"time"
-
-	"github.com/daominah/reminderd/pkg/model"
 )
 
 // Default values used when no ConfigStore is provided.
@@ -26,7 +24,7 @@ type UserInputTracker struct {
 	HistoryReader HistoryReader
 	TimeNow       func() time.Time
 
-	config           model.Config
+	config           Config
 	activeStart      time.Time
 	isReminded       bool
 	lastReminderTime time.Time
@@ -115,7 +113,7 @@ func (t *UserInputTracker) Tick() {
 	if idle >= t.idleThreshold().Seconds() {
 		if !t.activeStart.IsZero() {
 			log.Printf("break detected (idle %.0fs), resetting timer", idle)
-			t.writeHistory(now, model.Idle)
+			t.writeHistory(now, Idle)
 			t.activeStart = time.Time{}
 			t.isReminded = false
 			t.reminderCount = 0
@@ -131,7 +129,7 @@ func (t *UserInputTracker) Tick() {
 	}
 
 	// User is active: write history entry.
-	t.writeHistory(now, model.Active)
+	t.writeHistory(now, Active)
 
 	if t.activeStart.IsZero() {
 		t.activeStart = now
@@ -203,20 +201,20 @@ func (t *UserInputTracker) restoreActiveStart() {
 	}
 
 	last := entries[len(entries)-1]
-	if last.State != model.Active {
+	if last.State != Active {
 		return
 	}
 
 	// Walk backwards to find where the current active run started.
 	activeStartStr := last.Time
 	for i := len(entries) - 2; i >= 0; i-- {
-		if entries[i].State != model.Active {
+		if entries[i].State != Active {
 			break
 		}
 		activeStartStr = entries[i].Time
 	}
 
-	parsed, err := model.ParseTime(activeStartStr)
+	parsed, err := ParseTime(activeStartStr)
 	if err != nil {
 		return
 	}
@@ -254,11 +252,11 @@ func (t *UserInputTracker) reloadConfigIfChanged() {
 	}
 }
 
-func (t *UserInputTracker) writeHistory(ts time.Time, state model.ActivityState) {
+func (t *UserInputTracker) writeHistory(ts time.Time, state ActivityState) {
 	if t.HistoryWriter == nil {
 		return
 	}
-	entry := model.HistoryEntry{Time: model.FormatTime(ts), State: state}
+	entry := HistoryEntry{Time: FormatTime(ts), State: state}
 	if err := t.HistoryWriter.WriteEntry(entry); err != nil {
 		log.Printf("error HistoryWriter.WriteEntry: %v", err)
 	}

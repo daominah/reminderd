@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/daominah/reminderd/pkg/base"
-	"github.com/daominah/reminderd/pkg/model"
+	"github.com/daominah/reminderd/pkg/logic"
 )
 
 // FileStore reads and writes history entries to daily JSONL files.
@@ -40,7 +40,7 @@ func dateKey(t time.Time) string {
 }
 
 func dateKeyFromString(s string) string {
-	t, err := model.ParseTime(s)
+	t, err := logic.ParseTime(s)
 	if err != nil {
 		return ""
 	}
@@ -52,9 +52,10 @@ func filename(date string) string {
 }
 
 // WriteEntry appends a history entry to the appropriate daily file.
-// If the date has changed, the previous file is closed and a new one is opened.
-func (s *FileStore) WriteEntry(e model.HistoryEntry) error {
+func (s *FileStore) WriteEntry(e logic.HistoryEntry) error {
 	date := dateKeyFromString(e.Time)
+	// Rotate at midnight +07:00: when the entry's date differs
+	// from the current file's date, close the old file.
 	if date != s.currentDate {
 		if s.currentFile != nil {
 			s.currentFile.Close()
@@ -116,13 +117,13 @@ func (s *FileStore) CompactPrevious() error {
 		return nil
 	}
 
-	compacted := compact(entries)
+	compacted := logic.CompactHistory(entries)
 	return writeFile(target, compacted)
 }
 
 // ReadRange returns history entries within the given time range.
 // If end is nil, all entries from start onwards are returned.
-func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]model.HistoryEntry, error) {
+func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]logic.HistoryEntry, error) {
 	startDate := start.In(base.VietnamTimezone)
 	var endDate time.Time
 	if end != nil {
@@ -131,7 +132,7 @@ func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]model.HistoryE
 		endDate = time.Now().In(base.VietnamTimezone)
 	}
 
-	var result []model.HistoryEntry
+	var result []logic.HistoryEntry
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
 		date := d.Format("2006-01-02")
 		path := filepath.Join(s.Dir, filename(date))
@@ -143,7 +144,7 @@ func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]model.HistoryE
 			return nil, err
 		}
 		for _, e := range entries {
-			t, err := model.ParseTime(e.Time)
+			t, err := logic.ParseTime(e.Time)
 			if err != nil {
 				continue
 			}
@@ -159,21 +160,21 @@ func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]model.HistoryE
 	return result, nil
 }
 
-func readFile(path string) ([]model.HistoryEntry, error) {
+func readFile(path string) ([]logic.HistoryEntry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var entries []model.HistoryEntry
+	var entries []logic.HistoryEntry
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(line) == 0 {
 			continue
 		}
-		var e model.HistoryEntry
+		var e logic.HistoryEntry
 		if err := json.Unmarshal(line, &e); err != nil {
 			// Skip malformed lines.
 			continue
@@ -183,7 +184,7 @@ func readFile(path string) ([]model.HistoryEntry, error) {
 	return entries, scanner.Err()
 }
 
-func writeFile(path string, entries []model.HistoryEntry) error {
+func writeFile(path string, entries []logic.HistoryEntry) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("error os.Create %s: %w", path, err)
@@ -201,26 +202,4 @@ func writeFile(path string, entries []model.HistoryEntry) error {
 		}
 	}
 	return nil
-}
-
-// compact keeps only the first and last entry of each consecutive state run.
-func compact(entries []model.HistoryEntry) []model.HistoryEntry {
-	if len(entries) == 0 {
-		return nil
-	}
-
-	var result []model.HistoryEntry
-	runStart := 0
-	for i := 1; i <= len(entries); i++ {
-		if i == len(entries) || entries[i].State != entries[i-1].State {
-			result = append(result, entries[runStart])
-			if i-1 != runStart {
-				result = append(result, entries[i-1])
-			}
-			if i < len(entries) {
-				runStart = i
-			}
-		}
-	}
-	return result
 }

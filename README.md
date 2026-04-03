@@ -70,6 +70,39 @@ Send a test notification to verify that desktop alerts are working on your syste
 
 TODO: allow user to customize notification content.
 
+## Activity State Model
+
+History entries use a **state-boundary** model:
+each entry means "from this timestamp until the next entry, the user was in this state."
+
+Given these log lines:
+
+```jsonl
+{"Time":"2026-04-03T09:00:00+07:00","State":"ACTIVE"}
+{"Time":"2026-04-03T09:30:00+07:00","State":"IDLE"}
+{"Time":"2026-04-03T09:35:00+07:00","State":"ACTIVE"}
+```
+
+The interpretation is:
+
+| Time range          | State  |
+|---------------------|--------|
+| 09:00:00 to 09:30:00 | ACTIVE |
+| 09:30:00 to 09:35:00 | IDLE   |
+| 09:35:00 onward      | ACTIVE |
+
+To determine the state at any moment, find the latest entry
+whose timestamp is at or before that moment.
+For example, 09:20:00 falls in the first ACTIVE range,
+and 09:32:00 falls in the IDLE range.
+
+For the last entry in the file, its state extends until the next entry
+is written (or until the current time when rendering charts).
+
+This model is why log compaction is lossless:
+mid-run entries are redundant because the first entry of a run marks
+the start and the last entry marks the end.
+
 ## Design
 
 ```mermaid
