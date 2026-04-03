@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/daominah/reminderd/pkg/driver/base"
+	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/driver/config"
 	"github.com/daominah/reminderd/pkg/driver/history"
 	"github.com/daominah/reminderd/pkg/driver/httpsvr"
@@ -40,6 +40,7 @@ func main() {
 	}
 
 	historyStore := history.NewFileStore(dataDir)
+	defer historyStore.Close()
 
 	// Frontend: serve from disk if web/ dir exists (dev mode), otherwise use embedded files.
 	var frontendFS fs.FS

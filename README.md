@@ -40,7 +40,8 @@ Open <http://localhost:20902> in a browser. The web UI has two tabs:
 
 View and edit all settings from the browser.
 Each field has a tooltip explaining its meaning and recommended values.
-Changes take effect within one poll interval, no restart needed.
+Changes take effect within one poll interval, no restart needed
+(except `KeyboardMouseInputPollInterval`, which requires a restart).
 
 On first run, the app creates `~/.reminderd/config.json` with defaults:
 
@@ -85,6 +86,10 @@ graph TD
         D["history-YYYY-MM-DD.jsonl"]
     end
 ```
+
+## TODO
+
+- Test desktop notification on Windows.
 
 ## Roadmap
 

@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/model"
 )
-
-var vnTimezone = time.FixedZone("ICT", 7*60*60)
 
 // FileStore reads and writes history entries to daily JSONL files.
 type FileStore struct {
@@ -26,8 +25,18 @@ func NewFileStore(dir string) *FileStore {
 	return &FileStore{Dir: dir}
 }
 
+// Close closes the currently open file handle, if any.
+func (s *FileStore) Close() error {
+	if s.currentFile != nil {
+		err := s.currentFile.Close()
+		s.currentFile = nil
+		return err
+	}
+	return nil
+}
+
 func dateKey(t time.Time) string {
-	return t.In(vnTimezone).Format("2006-01-02")
+	return t.In(base.VietnamTimezone).Format("2006-01-02")
 }
 
 func dateKeyFromString(s string) string {
@@ -77,7 +86,7 @@ func (s *FileStore) WriteEntry(e model.HistoryEntry) error {
 // CompactPrevious compacts the most recent history file before today.
 // It keeps only the first and last entry of each consecutive state run.
 func (s *FileStore) CompactPrevious() error {
-	today := dateKey(time.Now().In(vnTimezone))
+	today := dateKey(time.Now().In(base.VietnamTimezone))
 	files, err := filepath.Glob(filepath.Join(s.Dir, "history-*.jsonl"))
 	if err != nil {
 		return fmt.Errorf("error filepath.Glob: %w", err)
@@ -114,12 +123,12 @@ func (s *FileStore) CompactPrevious() error {
 // ReadRange returns history entries within the given time range.
 // If end is nil, all entries from start onwards are returned.
 func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]model.HistoryEntry, error) {
-	startDate := start.In(vnTimezone)
+	startDate := start.In(base.VietnamTimezone)
 	var endDate time.Time
 	if end != nil {
-		endDate = end.In(vnTimezone)
+		endDate = end.In(base.VietnamTimezone)
 	} else {
-		endDate = time.Now().In(vnTimezone)
+		endDate = time.Now().In(base.VietnamTimezone)
 	}
 
 	var result []model.HistoryEntry

@@ -8,10 +8,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/logic"
 )
-
-var vnTimezone = time.FixedZone("ICT", 7*60*60)
 
 // Server serves the web UI and API endpoints.
 type Server struct {
@@ -50,8 +49,8 @@ func (s *Server) ListenAndServe() error {
 }
 
 func (s *Server) handleGetHistory(w http.ResponseWriter, r *http.Request) {
-	now := time.Now().In(vnTimezone)
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, vnTimezone)
+	now := time.Now().In(base.VietnamTimezone)
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, base.VietnamTimezone)
 
 	start := startOfDay
 	var end *time.Time

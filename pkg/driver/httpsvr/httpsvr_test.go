@@ -9,11 +9,10 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/logic"
 	"github.com/daominah/reminderd/pkg/model"
 )
-
-// Uses vnTimezone from httpsvr.go
 
 var testFS = fstest.MapFS{
 	"index.html": {Data: []byte("<html><body>test</body></html>")},
@@ -46,8 +45,8 @@ func TestGetIndex_ReturnsHTML(t *testing.T) {
 func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 	// GIVEN a server with history entries
 	entries := []model.HistoryEntry{
-		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone)), State: model.Active},
-		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, vnTimezone)), State: model.Idle},
+		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, base.VietnamTimezone)), State: model.Active},
+		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, base.VietnamTimezone)), State: model.Idle},
 	}
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
@@ -77,7 +76,7 @@ func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 func TestGetAPIHistory_AcceptsTimeRange(t *testing.T) {
 	// GIVEN a server with history entries
 	entries := []model.HistoryEntry{
-		{Time: model.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)), State: model.Active},
+		{Time: model.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)), State: model.Active},
 	}
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: model.DefaultConfig()},

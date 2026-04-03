@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/model"
 )
-
-// Uses vnTimezone from history.go
 
 func TestWriteEntry_AppendsToDailyFile(t *testing.T) {
 	// GIVEN a file store in a temp directory
 	dir := t.TempDir()
 	store := NewFileStore(dir)
+	defer store.Close()
 
 	// WHEN two active entries are written
-	t1 := time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone)
-	t2 := time.Date(2026, 4, 2, 10, 0, 10, 0, vnTimezone)
+	t1 := time.Date(2026, 4, 2, 10, 0, 0, 0, base.VietnamTimezone)
+	t2 := time.Date(2026, 4, 2, 10, 0, 10, 0, base.VietnamTimezone)
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t1), State: model.Active})
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t2), State: model.Active})
 
@@ -38,11 +38,12 @@ func TestWriteEntry_RollsOverOnNewDay(t *testing.T) {
 	// GIVEN a file store with entries from day 1
 	dir := t.TempDir()
 	store := NewFileStore(dir)
-	day1 := time.Date(2026, 4, 2, 23, 59, 50, 0, vnTimezone)
+	defer store.Close()
+	day1 := time.Date(2026, 4, 2, 23, 59, 50, 0, base.VietnamTimezone)
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day1), State: model.Active})
 
 	// WHEN an entry is written on the next day
-	day2 := time.Date(2026, 4, 3, 0, 0, 10, 0, vnTimezone)
+	day2 := time.Date(2026, 4, 3, 0, 0, 10, 0, base.VietnamTimezone)
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day2), State: model.Active})
 
 	// THEN two separate daily files exist
@@ -60,24 +61,25 @@ func TestCompactPrevious_KeepsFirstAndLastOfRuns(t *testing.T) {
 	// GIVEN a history file with redundant middle entries
 	dir := t.TempDir()
 	store := NewFileStore(dir)
-	base := time.Date(2026, 4, 2, 8, 0, 0, 0, vnTimezone)
+	defer store.Close()
+	start := time.Date(2026, 4, 2, 8, 0, 0, 0, base.VietnamTimezone)
 	// Write 5 consecutive active entries
 	for i := range 5 {
 		store.WriteEntry(model.HistoryEntry{
-			Time:  model.FormatTime(base.Add(time.Duration(i) * 10 * time.Second)),
+			Time:  model.FormatTime(start.Add(time.Duration(i) * 10 * time.Second)),
 			State: model.Active,
 		})
 	}
 	// Write 3 consecutive idle entries
 	for i := range 3 {
 		store.WriteEntry(model.HistoryEntry{
-			Time:  model.FormatTime(base.Add(time.Duration(50+i*10) * time.Second)),
+			Time:  model.FormatTime(start.Add(time.Duration(50+i*10) * time.Second)),
 			State: model.Idle,
 		})
 	}
 
 	// WHEN compaction runs (simulate next day so previous = 2026-04-02)
-	nextDay := time.Date(2026, 4, 3, 8, 0, 0, 0, vnTimezone)
+	nextDay := time.Date(2026, 4, 3, 8, 0, 0, 0, base.VietnamTimezone)
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(nextDay), State: model.Active})
 	store.CompactPrevious()
 
@@ -98,18 +100,19 @@ func TestReadRange_ReturnsEntriesInRange(t *testing.T) {
 	// GIVEN a file store with entries across two days
 	dir := t.TempDir()
 	store := NewFileStore(dir)
+	defer store.Close()
 
-	day1Morning := time.Date(2026, 4, 2, 8, 0, 0, 0, vnTimezone)
-	day1Afternoon := time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)
-	day2Morning := time.Date(2026, 4, 3, 9, 0, 0, 0, vnTimezone)
+	day1Morning := time.Date(2026, 4, 2, 8, 0, 0, 0, base.VietnamTimezone)
+	day1Afternoon := time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)
+	day2Morning := time.Date(2026, 4, 3, 9, 0, 0, 0, base.VietnamTimezone)
 
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day1Morning), State: model.Active})
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day1Afternoon), State: model.Idle})
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day2Morning), State: model.Active})
 
 	// WHEN querying a range that spans both days
-	start := time.Date(2026, 4, 2, 0, 0, 0, 0, vnTimezone)
-	end := time.Date(2026, 4, 3, 23, 59, 59, 0, vnTimezone)
+	start := time.Date(2026, 4, 2, 0, 0, 0, 0, base.VietnamTimezone)
+	end := time.Date(2026, 4, 3, 23, 59, 59, 0, base.VietnamTimezone)
 	entries, err := store.ReadRange(start, &end)
 	if err != nil {
 		t.Fatalf("ReadRange error: %v", err)
@@ -125,18 +128,19 @@ func TestReadRange_FiltersOutOfRange(t *testing.T) {
 	// GIVEN a file store with entries at different times
 	dir := t.TempDir()
 	store := NewFileStore(dir)
+	defer store.Close()
 
-	morning := time.Date(2026, 4, 2, 8, 0, 0, 0, vnTimezone)
-	afternoon := time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)
-	evening := time.Date(2026, 4, 2, 20, 0, 0, 0, vnTimezone)
+	morning := time.Date(2026, 4, 2, 8, 0, 0, 0, base.VietnamTimezone)
+	afternoon := time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)
+	evening := time.Date(2026, 4, 2, 20, 0, 0, 0, base.VietnamTimezone)
 
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(morning), State: model.Active})
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(afternoon), State: model.Active})
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(evening), State: model.Idle})
 
 	// WHEN querying only the afternoon range
-	start := time.Date(2026, 4, 2, 12, 0, 0, 0, vnTimezone)
-	end := time.Date(2026, 4, 2, 16, 0, 0, 0, vnTimezone)
+	start := time.Date(2026, 4, 2, 12, 0, 0, 0, base.VietnamTimezone)
+	end := time.Date(2026, 4, 2, 16, 0, 0, 0, base.VietnamTimezone)
 	entries, err := store.ReadRange(start, &end)
 	if err != nil {
 		t.Fatalf("ReadRange error: %v", err)
@@ -152,15 +156,16 @@ func TestReadRange_NoEndReturnsAllFromStart(t *testing.T) {
 	// GIVEN a file store with entries
 	dir := t.TempDir()
 	store := NewFileStore(dir)
+	defer store.Close()
 
-	t1 := time.Date(2026, 4, 2, 8, 0, 0, 0, vnTimezone)
-	t2 := time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)
+	t1 := time.Date(2026, 4, 2, 8, 0, 0, 0, base.VietnamTimezone)
+	t2 := time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)
 
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t1), State: model.Active})
 	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t2), State: model.Idle})
 
 	// WHEN querying with no end time
-	start := time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone)
+	start := time.Date(2026, 4, 2, 10, 0, 0, 0, base.VietnamTimezone)
 	entries, err := store.ReadRange(start, nil)
 	if err != nil {
 		t.Fatalf("ReadRange error: %v", err)
