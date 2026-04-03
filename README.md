@@ -29,6 +29,8 @@ go build -o reminderd ./cmd/reminderd
 
 Open <http://localhost:20902> in a browser. The web UI has three tabs:
 
+![Activity History tab showing a bar chart of keyboard/mouse activity over the last 4 hours](reminderd20902.jpg)
+
 ### Activity History
 
 A bar chart showing when you were active or idle.
