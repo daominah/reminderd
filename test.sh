@@ -37,5 +37,11 @@ go test -v ./...
 # go test ./...
 echo "end go test"
 
+# Run JavaScript unit tests for the web frontend.
+echo "----------------------------------------"
+echo "running node web/chart_calc_test.js ..."
+node web/chart_calc_test.js
+echo "end node web/chart_calc_test.js"
+
 echo "========================================"
 echo "All tests passed!"

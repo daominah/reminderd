@@ -4,8 +4,6 @@ import (
 	"time"
 )
 
-const TimeFormat = "2006-01-02T15:04:05Z07:00"
-
 // ActivityState is the user's input activity state.
 type ActivityState string
 
@@ -37,6 +35,9 @@ type HistoryEntry struct {
 	Time  string        `json:"Time"`
 	State ActivityState `json:"State"`
 }
+
+// TimeFormat used in log files
+const TimeFormat = "2006-01-02T15:04:05Z07:00"
 
 func FormatTime(t time.Time) string {
 	return t.Format(TimeFormat)

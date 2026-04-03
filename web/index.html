@@ -4,37 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>reminderd</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: system-ui, sans-serif; background: #fdf6e3; color: #657b83; padding: 24px; }
-  h1 { font-size: 1.4em; margin-bottom: 16px; color: #586e75; }
-  .tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #eee8d5; }
-  .tab { padding: 8px 20px; cursor: pointer; border: none; background: none; color: #93a1a1;
-         font-size: 0.95em; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-  .tab:hover { color: #586e75; }
-  .tab.active { color: #268bd2; border-bottom-color: #268bd2; }
-  .tab-content { display: none; }
-  .tab-content.active { display: block; }
-  .quick-ranges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .quick-ranges button { background: #eee8d5; color: #586e75; border: 1px solid #d3cbb7;
-    padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
-  .quick-ranges button:hover { background: #d3cbb7; }
-  .quick-ranges button.active { background: #268bd2; color: #fdf6e3; border-color: #268bd2; }
-  #chart { width: 100%; height: 300px; background: #eee8d5; border-radius: 8px; overflow: hidden; }
-  canvas { width: 100%; height: 100%; }
-  .config-section { max-width: 500px; }
-  .config-field { display: flex; justify-content: space-between; align-items: center; padding: 8px 0;
-    border-bottom: 1px solid #eee8d5; }
-  .config-field label { font-size: 0.9em; color: #586e75; }
-  .config-field input { background: #eee8d5; color: #657b83; border: 1px solid #d3cbb7;
-    padding: 4px 8px; border-radius: 4px; width: 140px; text-align: right; }
-  .config-field input:focus { outline: 1px solid #268bd2; border-color: #268bd2; }
-  .save-btn { margin-top: 12px; background: #268bd2; color: #fdf6e3; border: none;
-    padding: 6px 20px; border-radius: 4px; cursor: pointer; }
-  .save-btn:hover { background: #2176b8; }
-  .status { font-size: 0.85em; color: #859900; margin-left: 12px; }
-  .summary { font-size: 0.9em; color: #93a1a1; margin: 8px 0; }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <h1>reminderd</h1>
@@ -46,205 +16,28 @@
 
 <div id="tab-history" class="tab-content active">
   <div class="quick-ranges" id="quickRanges">
-    <button onclick="quickRange(5)">Last 5m</button>
-    <button onclick="quickRange(15)">Last 15m</button>
-    <button onclick="quickRange(30)">Last 30m</button>
-    <button onclick="quickRange(60)">Last 1h</button>
-    <button onclick="quickRange(180)">Last 3h</button>
-    <button onclick="quickRange(720)">Last 12h</button>
-    <button onclick="quickRange(1440)" class="active">Last 24h</button>
-    <button onclick="quickRange(4320)">Last 3d</button>
-    <button onclick="quickRange(10080)">Last 7d</button>
+    <button onclick="quickRange(60)" data-range="60">Last 1h</button>
+    <button onclick="quickRange(240)" data-range="240">Last 4h</button>
+    <button onclick="quickRange(720)" data-range="720">Last 12h</button>
+    <button onclick="quickRange(1440)" data-range="1440">Last 24h</button>
+    <button onclick="quickRange(2880)" data-range="2880">Last 2d</button>
+    <button onclick="quickRange(10080)" data-range="10080">Last 7d</button>
+    <button onclick="quickRange(43200)" data-range="43200">Last 30d</button>
+    <button onclick="quickRange(262800)" data-range="262800">Last 6m</button>
+    <button onclick="quickRange(525600)" data-range="525600">Last 1y</button>
+    <button onclick="quickRange(0)" data-range="0">All time</button>
   </div>
   <div id="summary" class="summary"></div>
-  <div id="chart"><canvas id="canvas"></canvas></div>
+  <div id="chart"><canvas id="canvas"></canvas><div class="tooltip" id="tooltip"></div></div>
 </div>
 
 <div id="tab-config" class="tab-content">
   <div class="config-section" id="configSection"></div>
+  <button class="save-btn" style="margin-top: 24px" onclick="testNotification()">Test Notification</button>
+  <span id="testResult" class="status"></span>
 </div>
 
-<script>
-function switchTab(name) {
-  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-  document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
-  document.getElementById("tab-" + name).classList.add("active");
-  event.target.classList.add("active");
-}
-
-const configFields = [
-  {key: "ContinuousActiveLimit", label: "Active limit"},
-  {key: "IdleDurationToConsiderBreak", label: "Idle threshold"},
-  {key: "KeyboardMouseInputPollInterval", label: "Poll interval"},
-  {key: "NotificationInitialBackoff", label: "Initial backoff"},
-  {key: "WebUIPort", label: "Web UI port"},
-];
-
-let currentRangeMinutes = 1440;
-
-function toVN(d) {
-  const offset = 7 * 60;
-  const vn = new Date(d.getTime() + (offset + d.getTimezoneOffset()) * 60000);
-  const pad = n => String(n).padStart(2, "0");
-  return vn.getFullYear() + "-" + pad(vn.getMonth()+1) + "-" + pad(vn.getDate())
-    + "T" + pad(vn.getHours()) + ":" + pad(vn.getMinutes()) + ":" + pad(vn.getSeconds()) + "+07:00";
-}
-
-function quickRange(minutes) {
-  currentRangeMinutes = minutes;
-  document.querySelectorAll(".quick-ranges button").forEach(b => b.classList.remove("active"));
-  event.target.classList.add("active");
-  loadChart();
-}
-
-async function loadChart() {
-  const now = new Date();
-  const start = new Date(now.getTime() - currentRangeMinutes * 60000);
-  const startStr = toVN(start);
-  const endStr = toVN(now);
-  const url = "/api/history?start=" + encodeURIComponent(startStr) + "&end=" + encodeURIComponent(endStr);
-  const resp = await fetch(url);
-  const entries = await resp.json();
-  const label = "Last " + formatRangeLabel(currentRangeMinutes);
-  renderChart(entries, label, start.getTime(), now.getTime());
-}
-
-function formatRangeLabel(minutes) {
-  if (minutes < 60) return minutes + "m";
-  if (minutes < 1440) return (minutes / 60) + "h";
-  return (minutes / 1440) + "d";
-}
-
-function renderChart(entries, label, rangeStartMs, rangeEndMs) {
-  const canvas = document.getElementById("canvas");
-  const ctx = canvas.getContext("2d");
-  const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width * devicePixelRatio;
-  canvas.height = rect.height * devicePixelRatio;
-  ctx.scale(devicePixelRatio, devicePixelRatio);
-  const W = rect.width;
-  const H = rect.height;
-  ctx.clearRect(0, 0, W, H);
-
-  if (entries.length === 0) {
-    ctx.fillStyle = "#93a1a1";
-    ctx.font = "14px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText("No data for " + label, W / 2, H / 2);
-    document.getElementById("summary").textContent = "";
-    return;
-  }
-
-  const spanMs = rangeEndMs - rangeStartMs;
-  const spanHours = spanMs / 3600000;
-
-  let bucketMs;
-  if (spanHours <= 0.25) bucketMs = 10000;
-  else if (spanHours <= 1) bucketMs = 60000;
-  else if (spanHours <= 6) bucketMs = 600000;
-  else if (spanHours <= 48) bucketMs = 3600000;
-  else bucketMs = 86400000;
-
-  const buckets = {};
-  for (const e of entries) {
-    const t = new Date(e.Time).getTime();
-    const bucket = Math.floor((t - rangeStartMs) / bucketMs);
-    if (!buckets[bucket]) buckets[bucket] = {active: 0, idle: 0};
-    if (e.State === "ACTIVE") buckets[bucket].active++;
-    else buckets[bucket].idle++;
-  }
-
-  const totalBuckets = Math.ceil(spanMs / bucketMs);
-  const leftPad = 50;
-  const rightPad = 10;
-  const topPad = 10;
-  const bottomPad = 30;
-  const barW = Math.max(1, (W - leftPad - rightPad) / totalBuckets);
-  const chartH = H - topPad - bottomPad;
-
-  for (let i = 0; i < totalBuckets; i++) {
-    const b = buckets[i];
-    if (!b) continue;
-    const total = b.active + b.idle;
-    const activeH = (b.active / total) * chartH;
-    const x = leftPad + i * barW;
-
-    ctx.fillStyle = "#859900";
-    ctx.fillRect(x, topPad + chartH - activeH, barW - 1, activeH);
-    ctx.fillStyle = "#d3cbb7";
-    ctx.fillRect(x, topPad, barW - 1, chartH - activeH);
-  }
-
-  ctx.fillStyle = "#93a1a1";
-  ctx.font = "11px system-ui";
-  ctx.textAlign = "center";
-  const pad = n => String(n).padStart(2, "0");
-  const vnOffset = 7 * 60 * 60000;
-
-  let labelCount = 6;
-  const labelStep = Math.ceil(totalBuckets / labelCount);
-  for (let i = 0; i <= totalBuckets; i += labelStep) {
-    const t = new Date(rangeStartMs + i * bucketMs + vnOffset);
-    let text;
-    if (spanHours <= 1) text = pad(t.getUTCHours()) + ":" + pad(t.getUTCMinutes()) + ":" + pad(t.getUTCSeconds());
-    else if (spanHours <= 48) text = pad(t.getUTCHours()) + ":" + pad(t.getUTCMinutes());
-    else text = pad(t.getUTCMonth()+1) + "-" + pad(t.getUTCDate());
-    const x = leftPad + i * barW;
-    ctx.fillText(text, x, H - 6);
-  }
-
-  const activeEntries = entries.filter(e => e.State === "ACTIVE").length;
-  document.getElementById("summary").textContent =
-    label + " | Active: " + activeEntries + " / " + entries.length + " samples";
-}
-
-async function loadConfig() {
-  const resp = await fetch("/api/config");
-  const cfg = await resp.json();
-  const section = document.getElementById("configSection");
-  section.innerHTML = "";
-  for (const f of configFields) {
-    const div = document.createElement("div");
-    div.className = "config-field";
-    const label = document.createElement("label");
-    label.textContent = f.label;
-    const input = document.createElement("input");
-    input.id = "cfg-" + f.key;
-    input.value = cfg[f.key] || "";
-    div.appendChild(label);
-    div.appendChild(input);
-    section.appendChild(div);
-  }
-  const btn = document.createElement("button");
-  btn.className = "save-btn";
-  btn.textContent = "Save config";
-  btn.onclick = saveConfig;
-  section.appendChild(btn);
-}
-
-async function saveConfig() {
-  const body = {};
-  for (const f of configFields) {
-    const val = document.getElementById("cfg-" + f.key).value;
-    if (f.key === "WebUIPort") body[f.key] = parseInt(val, 10);
-    else body[f.key] = val;
-  }
-  const resp = await fetch("/api/config", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(body),
-  });
-  if (resp.ok) {
-    const status = document.createElement("span");
-    status.className = "status";
-    status.textContent = "Saved!";
-    document.querySelector(".save-btn").after(status);
-    setTimeout(() => status.remove(), 2000);
-  }
-}
-
-loadChart();
-loadConfig();
-</script>
+<script src="chart_calc.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

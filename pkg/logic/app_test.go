@@ -57,8 +57,8 @@ func TestTick_ReminderAtThreshold(t *testing.T) {
 	if len(notifier.Calls) != 1 {
 		t.Fatalf("expected 1 notification, got %d", len(notifier.Calls))
 	}
-	if notifier.Calls[0].Title != "Break Reminder" {
-		t.Errorf("expected title 'Break Reminder', got %q", notifier.Calls[0].Title)
+	if notifier.Calls[0].Title != "Sat Too Long, Take a Break" {
+		t.Errorf("expected title 'Sat Too Long, Take a Break', got %q", notifier.Calls[0].Title)
 	}
 }
 
@@ -315,5 +315,87 @@ func TestTick_ConfigHotReload(t *testing.T) {
 	// THEN a reminder is sent (the new shorter limit is now exceeded)
 	if len(notifier.Calls) != 1 {
 		t.Fatalf("expected 1 notification after config hot-reload, got %d", len(notifier.Calls))
+	}
+}
+
+func TestRestoreActiveStart_ResumesFromHistory(t *testing.T) {
+	// GIVEN a history with an active session that started at 08:00
+	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []model.HistoryEntry{
+			{Time: model.FormatTime(time.Date(2026, 1, 1, 7, 0, 0, 0, time.UTC)), State: model.Active},
+			{Time: model.FormatTime(time.Date(2026, 1, 1, 7, 30, 0, 0, time.UTC)), State: model.Idle},
+			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: model.Active},
+			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 50, 0, 0, time.UTC)), State: model.Active},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts (simulating a restart)
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is restored to 08:00 (start of the last active run)
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
+	}
+
+	// AND ActiveDuration reflects the time since 08:00
+	d := tracker.ActiveDuration()
+	if d != 1*time.Hour {
+		t.Errorf("expected ActiveDuration 1h, got %v", d)
+	}
+}
+
+func TestRestoreActiveStart_NoRestoreWhenLastEntryIsIdle(t *testing.T) {
+	// GIVEN a history where the last entry is idle
+	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []model.HistoryEntry{
+			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: model.Active},
+			{Time: model.FormatTime(time.Date(2026, 1, 1, 8, 30, 0, 0, time.UTC)), State: model.Idle},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is not set (user was idle when process stopped)
+	if !tracker.activeStart.IsZero() {
+		t.Errorf("expected zero activeStart, got %v", tracker.activeStart)
+	}
+	if tracker.ActiveDuration() != 0 {
+		t.Errorf("expected ActiveDuration 0, got %v", tracker.ActiveDuration())
+	}
+}
+
+func TestRestoreActiveStart_NoHistoryReader(t *testing.T) {
+	// GIVEN a tracker with no history reader
+	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
+	tracker := &UserInputTracker{
+		IdleDetector: &MockIdleDetector{Seconds: 0},
+		Notifier:     &MockNotifier{},
+		TimeNow:      func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart stays zero (no crash, no restore)
+	if !tracker.activeStart.IsZero() {
+		t.Errorf("expected zero activeStart, got %v", tracker.activeStart)
 	}
 }

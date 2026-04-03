@@ -23,6 +23,7 @@ type UserInputTracker struct {
 	Notifier      Notifier
 	ConfigStore   ConfigStore
 	HistoryWriter HistoryWriter
+	HistoryReader HistoryReader
 	TimeNow       func() time.Time
 
 	config           model.Config
@@ -77,6 +78,8 @@ func (t *UserInputTracker) Run(ctx context.Context) error {
 			log.Printf("error HistoryWriter.CompactPrevious: %v", err)
 		}
 	}
+
+	t.restoreActiveStart()
 
 	log.Printf("reminderd started (activeLimit=%s, idleThreshold=%s, poll=%s)",
 		t.activeLimit(), t.idleThreshold(), t.pollInterval())
@@ -142,15 +145,9 @@ func (t *UserInputTracker) Tick() {
 
 	// Active for >= threshold, check if we should remind.
 	if !t.isReminded {
-		msg := fmt.Sprintf(
-			"You have been active for %s. Take a break!",
-			formatDuration(activeDuration),
-		)
-		if err := t.Notifier.Notify("Break Reminder", msg); err != nil {
-			log.Printf("error Notifier.Notify: %v", err)
+		if !t.sendReminder(activeDuration) {
 			return
 		}
-		log.Printf("reminder sent (active %s)", formatDuration(activeDuration))
 		t.isReminded = true
 		t.lastReminderTime = now
 		t.reminderCount = 1
@@ -163,18 +160,69 @@ func (t *UserInputTracker) Tick() {
 		return
 	}
 
+	if !t.sendReminder(activeDuration) {
+		return
+	}
+	t.lastReminderTime = now
+	t.reminderCount++
+}
+
+func (t *UserInputTracker) sendReminder(activeDuration time.Duration) bool {
 	msg := fmt.Sprintf(
 		"You have been active for %s. Take a break!",
 		formatDuration(activeDuration),
 	)
-	if err := t.Notifier.Notify("Break Reminder", msg); err != nil {
+	if err := t.Notifier.Notify("Sat Too Long, Take a Break", msg); err != nil {
 		log.Printf("error Notifier.Notify: %v", err)
+		return false
+	}
+	log.Printf("reminder sent (active %s)", formatDuration(activeDuration))
+	return true
+}
+
+// ActiveDuration returns how long the user has been continuously active
+// in the current session. Returns 0 if the user is not currently active.
+func (t *UserInputTracker) ActiveDuration() time.Duration {
+	if t.activeStart.IsZero() {
+		return 0
+	}
+	return t.timeNow().Sub(t.activeStart)
+}
+
+// restoreActiveStart reads recent history on startup to pick up an
+// active session that was in progress before the process restarted.
+func (t *UserInputTracker) restoreActiveStart() {
+	if t.HistoryReader == nil {
 		return
 	}
-	log.Printf("reminder sent (active %s, backoff %s)",
-		formatDuration(activeDuration), backoff)
-	t.lastReminderTime = now
-	t.reminderCount++
+	now := t.timeNow()
+	startOfDay := now.Add(-24 * time.Hour)
+	entries, err := t.HistoryReader.ReadRange(startOfDay, nil)
+	if err != nil || len(entries) == 0 {
+		return
+	}
+
+	last := entries[len(entries)-1]
+	if last.State != model.Active {
+		return
+	}
+
+	// Walk backwards to find where the current active run started.
+	activeStartStr := last.Time
+	for i := len(entries) - 2; i >= 0; i-- {
+		if entries[i].State != model.Active {
+			break
+		}
+		activeStartStr = entries[i].Time
+	}
+
+	parsed, err := model.ParseTime(activeStartStr)
+	if err != nil {
+		return
+	}
+	t.activeStart = parsed
+	log.Printf("restored active session from %s (active %s)",
+		parsed.Format("15:04:05"), now.Sub(parsed).Round(time.Second))
 }
 
 func (t *UserInputTracker) loadConfig() {

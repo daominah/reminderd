@@ -54,19 +54,25 @@ func main() {
 		frontendFS = web.FrontendAssets
 	}
 
+	notifier := &notify.OSNotifier{}
+
+	tracker := logic.NewUserInputTracker(
+		&userinput.IdleDetector{},
+		notifier,
+	)
+	tracker.ConfigStore = configStore
+	tracker.HistoryWriter = historyStore
+	tracker.HistoryReader = historyStore
+
 	srv := httpsvr.NewServer(configStore, historyStore, frontendFS, cfg.WebUIPort)
+	srv.Notifier = notifier
+	srv.Tracker = tracker
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("error httpsvr.ListenAndServe: %v", err)
 		}
 	}()
 
-	tracker := logic.NewUserInputTracker(
-		&userinput.IdleDetector{},
-		&notify.OSNotifier{},
-	)
-	tracker.ConfigStore = configStore
-	tracker.HistoryWriter = historyStore
 	if err := tracker.Run(ctx); err != nil {
 		log.Fatalf("error tracker.Run: %v", err)
 	}

@@ -14,7 +14,7 @@ The generic service name leaves room for other reminder types in the future.
   exponential backoff: 5m, 10m, 20m, ...
 - The timer resets once you actually take a break (2 minutes of no input).
 - Records activity history to daily files in `~/.reminderd/`.
-- Serves a usage chart on a local web page.
+- Serves a web UI with activity chart and settings at <http://localhost:20902>.
 
 ## Platforms
 
@@ -22,7 +22,15 @@ The generic service name leaves room for other reminder types in the future.
 - Windows 10/11 (`GetLastInputInfo` from user32.dll)
 - Linux Mint 22.3 "Zena" (X11, `XScreenSaverQueryInfo`)
 
-## Configuration
+## Web UI
+
+Open <http://localhost:20902> in a browser. The web UI has two tabs:
+
+### Configuration
+
+View and edit all settings from the browser.
+Each field has a tooltip explaining its meaning and recommended values.
+Changes take effect within one poll interval, no restart needed.
 
 On first run, the app creates `~/.reminderd/config.json` with defaults:
 
@@ -36,25 +44,19 @@ On first run, the app creates `~/.reminderd/config.json` with defaults:
 }
 ```
 
-Edit the file or use the web UI at `http://localhost:20902` to change values.
-Changes take effect within one poll interval (no restart needed).
+### User activity history
 
-## Activity history
+A bar chart showing when you were active or idle.
+You can choose a time range (Last 1h, 4h, 12h, 24h, 2d, 7d, 30d, 6m, 1y, all time).
+Example summary: Last 4h | Active: 2h32m (63%) | Reminders: 2
+Hover over any bar to see the active/total duration breakdown.
 
-Each poll tick while the user is active appends a line to
-`~/.reminderd/history-YYYY-MM-DD.jsonl`.
-When a break is detected, one idle line is written.
-
+Activity is recorded to daily files in `~/.reminderd/` (e.g. `history-2026-04-03.jsonl`).
 At daily rollover, the previous day's file is compacted:
 only the first and last record of each consecutive state run are kept.
 
 History is kept forever. Estimated storage:
 ~300 KB/year (compacted), ~42 MB/year (uncompacted, 10s poll, 8h/day).
-
-## Usage chart
-
-A localhost HTTP server runs alongside the daemon (default port 20902).
-Open `http://localhost:20902` in a browser to see a daily usage chart.
 
 ## Usage
 
