@@ -12,3 +12,12 @@ func TestCustomLogger(t *testing.T) {
 	t.Logf("TestCustomLogger t.Logf")
 	// Output without timestamp
 }
+
+func TestGetProjectRootDir(t *testing.T) {
+	projectRootDir, err := GetProjectRootDir()
+	if err != nil {
+		t.Fatalf("error GetProjectRootDir: %v", err)
+	}
+	t.Logf("projectRootDir: %s", projectRootDir)
+	// Output: HOME/go/src/github.com/daominah/reminderd
+}

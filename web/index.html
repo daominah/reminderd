@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>reminderd</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>reminderd</h1>
+
+<div>
+  Your activity is detected based on keyboard/mouse input.
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('history')">Activity History</button>
+  <button class="tab" onclick="switchTab('config')">Configuration</button>
+  <button class="tab" onclick="switchTab('notification')">Notification</button>
+</div>
+
+<div id="tab-history" class="tab-content active">
+  <div class="quick-ranges" id="quickRanges">
+    <button onclick="quickRange(60)" data-range="60">Last 1h</button>
+    <button onclick="quickRange(240)" data-range="240">Last 4h</button>
+    <button onclick="quickRange(720)" data-range="720">Last 12h</button>
+    <button onclick="quickRange(1440)" data-range="1440">Last 24h</button>
+    <button onclick="quickRange(2880)" data-range="2880">Last 2d</button>
+    <button onclick="quickRange(10080)" data-range="10080">Last 7d</button>
+    <button onclick="quickRange(43200)" data-range="43200">Last 30d</button>
+    <button onclick="quickRange(262800)" data-range="262800">Last 6mo</button>
+    <button onclick="quickRange(525600)" data-range="525600">Last 1y</button>
+    <button onclick="quickRange(0)" data-range="0">All time</button>
+  </div>
+  <div id="summary" class="summary"></div>
+  <div id="chart">
+    <canvas id="canvas"></canvas>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<div id="tab-config" class="tab-content">
+  <div class="config-section" id="configSection"></div>
+</div>
+
+<div id="tab-notification" class="tab-content">
+  <button class="save-btn" onclick="testNotification()">Send Test Notification</button>
+  <span id="testResult" class="status"></span>
+</div>
+
+<script src="chart_calc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
