@@ -55,7 +55,7 @@ func main() {
 		frontendFS = web.FrontendAssets
 	}
 
-	notifier := &notify.OSNotifier{}
+	notifier := notify.ToastNotifier{}
 
 	tracker := logic.NewUserInputTracker(
 		&userinput.IdleDetector{},
