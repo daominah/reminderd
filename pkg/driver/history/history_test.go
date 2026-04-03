@@ -19,8 +19,8 @@ func TestWriteEntry_AppendsToDailyFile(t *testing.T) {
 	// WHEN two active entries are written
 	t1 := time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone)
 	t2 := time.Date(2026, 4, 2, 10, 0, 10, 0, vnTimezone)
-	store.WriteEntry(model.HistoryEntry{Time: t1, State: model.Active})
-	store.WriteEntry(model.HistoryEntry{Time: t2, State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t1), State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t2), State: model.Active})
 
 	// THEN the daily file exists with 2 lines
 	path := filepath.Join(dir, "history-2026-04-02.jsonl")
@@ -39,11 +39,11 @@ func TestWriteEntry_RollsOverOnNewDay(t *testing.T) {
 	dir := t.TempDir()
 	store := NewFileStore(dir)
 	day1 := time.Date(2026, 4, 2, 23, 59, 50, 0, vnTimezone)
-	store.WriteEntry(model.HistoryEntry{Time: day1, State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day1), State: model.Active})
 
 	// WHEN an entry is written on the next day
 	day2 := time.Date(2026, 4, 3, 0, 0, 10, 0, vnTimezone)
-	store.WriteEntry(model.HistoryEntry{Time: day2, State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day2), State: model.Active})
 
 	// THEN two separate daily files exist
 	file1 := filepath.Join(dir, "history-2026-04-02.jsonl")
@@ -64,22 +64,21 @@ func TestCompactPrevious_KeepsFirstAndLastOfRuns(t *testing.T) {
 	// Write 5 consecutive active entries
 	for i := range 5 {
 		store.WriteEntry(model.HistoryEntry{
-			Time:  base.Add(time.Duration(i) * 10 * time.Second),
+			Time:  model.FormatTime(base.Add(time.Duration(i) * 10 * time.Second)),
 			State: model.Active,
 		})
 	}
 	// Write 3 consecutive idle entries
 	for i := range 3 {
 		store.WriteEntry(model.HistoryEntry{
-			Time:  base.Add(time.Duration(50+i*10) * time.Second),
+			Time:  model.FormatTime(base.Add(time.Duration(50+i*10) * time.Second)),
 			State: model.Idle,
 		})
 	}
 
 	// WHEN compaction runs (simulate next day so previous = 2026-04-02)
-	// Write one entry on 2026-04-03 to trigger rollover
 	nextDay := time.Date(2026, 4, 3, 8, 0, 0, 0, vnTimezone)
-	store.WriteEntry(model.HistoryEntry{Time: nextDay, State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(nextDay), State: model.Active})
 	store.CompactPrevious()
 
 	// THEN the 2026-04-02 file has 4 lines:
@@ -104,9 +103,9 @@ func TestReadRange_ReturnsEntriesInRange(t *testing.T) {
 	day1Afternoon := time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)
 	day2Morning := time.Date(2026, 4, 3, 9, 0, 0, 0, vnTimezone)
 
-	store.WriteEntry(model.HistoryEntry{Time: day1Morning, State: model.Active})
-	store.WriteEntry(model.HistoryEntry{Time: day1Afternoon, State: model.Idle})
-	store.WriteEntry(model.HistoryEntry{Time: day2Morning, State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day1Morning), State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day1Afternoon), State: model.Idle})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(day2Morning), State: model.Active})
 
 	// WHEN querying a range that spans both days
 	start := time.Date(2026, 4, 2, 0, 0, 0, 0, vnTimezone)
@@ -131,9 +130,9 @@ func TestReadRange_FiltersOutOfRange(t *testing.T) {
 	afternoon := time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)
 	evening := time.Date(2026, 4, 2, 20, 0, 0, 0, vnTimezone)
 
-	store.WriteEntry(model.HistoryEntry{Time: morning, State: model.Active})
-	store.WriteEntry(model.HistoryEntry{Time: afternoon, State: model.Active})
-	store.WriteEntry(model.HistoryEntry{Time: evening, State: model.Idle})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(morning), State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(afternoon), State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(evening), State: model.Idle})
 
 	// WHEN querying only the afternoon range
 	start := time.Date(2026, 4, 2, 12, 0, 0, 0, vnTimezone)
@@ -157,8 +156,8 @@ func TestReadRange_NoEndReturnsAllFromStart(t *testing.T) {
 	t1 := time.Date(2026, 4, 2, 8, 0, 0, 0, vnTimezone)
 	t2 := time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)
 
-	store.WriteEntry(model.HistoryEntry{Time: t1, State: model.Active})
-	store.WriteEntry(model.HistoryEntry{Time: t2, State: model.Idle})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t1), State: model.Active})
+	store.WriteEntry(model.HistoryEntry{Time: model.FormatTime(t2), State: model.Idle})
 
 	// WHEN querying with no end time
 	start := time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone)

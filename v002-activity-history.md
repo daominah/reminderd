@@ -192,11 +192,11 @@ Phase 1 (model + interfaces)
 
 - [x] Step 1: Understand requirements
 - [x] Step 2: Clarify vague areas
-- [ ] Step 3: Spike (skip, approach is well understood)
+- [x] Step 3: Spike (skip, approach is well understood)
 - [x] Step 4: High-level design
 - [x] Step 5: Detailed implementation plan
-- [ ] Step 6: Write failing tests
-- [ ] Step 7: Commit, push, draft PR
-- [ ] Step 8: Implement feature
+- [x] Step 6: Write failing tests
+- [x] Step 7: Commit, push
+- [x] Step 8: Implement feature (all 24 tests pass)
 - [ ] Step 9: Document
 - [ ] Step 10: Commit implementation, mark PR ready

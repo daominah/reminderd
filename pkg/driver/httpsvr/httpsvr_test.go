@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/daominah/reminderd/pkg/logic"
@@ -14,11 +15,16 @@ import (
 
 // Uses vnTimezone from httpsvr.go
 
+var testFS = fstest.MapFS{
+	"index.html": {Data: []byte("<html><body>test</body></html>")},
+}
+
 func TestGetIndex_ReturnsHTML(t *testing.T) {
 	// GIVEN an HTTP server
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
 		&logic.MockHistoryReader{},
+		testFS,
 		20902,
 	)
 
@@ -40,12 +46,13 @@ func TestGetIndex_ReturnsHTML(t *testing.T) {
 func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 	// GIVEN a server with history entries
 	entries := []model.HistoryEntry{
-		{Time: time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone), State: model.Active},
-		{Time: time.Date(2026, 4, 2, 10, 0, 10, 0, vnTimezone), State: model.Idle},
+		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, vnTimezone)), State: model.Active},
+		{Time: model.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, vnTimezone)), State: model.Idle},
 	}
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
 		&logic.MockHistoryReader{Entries: entries},
+		testFS,
 		20902,
 	)
 
@@ -70,11 +77,12 @@ func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 func TestGetAPIHistory_AcceptsTimeRange(t *testing.T) {
 	// GIVEN a server with history entries
 	entries := []model.HistoryEntry{
-		{Time: time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone), State: model.Active},
+		{Time: model.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, vnTimezone)), State: model.Active},
 	}
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: model.DefaultConfig()},
 		&logic.MockHistoryReader{Entries: entries},
+		testFS,
 		20902,
 	)
 
@@ -97,6 +105,7 @@ func TestGetAPIConfig_ReturnsCurrentConfig(t *testing.T) {
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: cfg},
 		&logic.MockHistoryReader{},
+		testFS,
 		9999,
 	)
 
@@ -125,7 +134,7 @@ func TestGetAPIConfig_ReturnsCurrentConfig(t *testing.T) {
 func TestPostAPIConfig_UpdatesConfig(t *testing.T) {
 	// GIVEN a server with a config store
 	configStore := &logic.MockConfigStore{Cfg: model.DefaultConfig()}
-	srv := NewServer(configStore, &logic.MockHistoryReader{}, 20902)
+	srv := NewServer(configStore, &logic.MockHistoryReader{}, testFS, 20902)
 
 	// WHEN POST /api/config is called with new values
 	body := `{"ContinuousActiveLimit":"30m","WebUIPort":8080}`

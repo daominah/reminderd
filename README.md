@@ -70,23 +70,38 @@ go build -o reminderd ./cmd/reminderd
 
 ### Components
 
-1. **Idle detector** (per-platform driver):
+1. **Idle detector** (`pkg/driver/userinput/`, per-platform):
    one method `IdleSeconds() (float64, error)`.
    Three implementations via build tags (darwin, windows, linux).
 
-2. **Notifier** (per-platform driver):
+2. **Notifier** (`pkg/driver/notify/`, per-platform):
    one method `Notify(title, message string) error`.
    Shells out to `osascript` / PowerShell / `notify-send`.
 
-3. **UserInputTracker** (core logic, platform-independent):
+3. **Config store** (`pkg/driver/config/`):
+   reads and writes `~/.reminderd/config.json`.
+   Checks file modification time each tick; reloads only when changed.
+   Missing fields are merged with defaults and written back.
+
+4. **History store** (`pkg/driver/history/`):
+   appends JSONL entries to daily files (`history-YYYY-MM-DD.jsonl`).
+   Compacts the previous day's file on rollover.
+   Reads entries by time range for the chart.
+
+5. **HTTP server** (`pkg/driver/httpsvr/`):
+   serves the usage chart page and config editor.
+   Endpoints: `GET /`, `GET /api/history`, `GET /api/config`, `POST /api/config`.
+
+6. **UserInputTracker** (`pkg/logic/`, platform-independent):
    polls idle detector on a configurable interval (default 10s).
+   Writes history entries each tick. Reloads config on file change.
    If idle < threshold: accumulate active duration.
    If idle >= threshold: reset everything.
    If active >= limit: send reminder, then exponential backoff.
 
-4. **`cmd/reminderd/main.go`**: wires drivers into tracker, starts the loop.
+7. **`cmd/reminderd/main.go`**: creates `~/.reminderd/`, wires all components, starts
+   the HTTP server and tracker loop.
 
 ## Roadmap
 
-- **v0.0.2**: persist input/idle history across restarts, generate a usage chart.
 - **v0.0.3**: minimal UI with system tray, install as a service (auto-start on boot).

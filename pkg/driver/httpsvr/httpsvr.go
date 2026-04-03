@@ -3,6 +3,7 @@ package httpsvr
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"log"
 	"net/http"
 	"time"
@@ -16,13 +17,15 @@ var vnTimezone = time.FixedZone("ICT", 7*60*60)
 type Server struct {
 	ConfigStore   logic.ConfigStore
 	HistoryReader logic.HistoryReader
+	FrontendFS    fs.FS
 	Port          int
 }
 
-func NewServer(configStore logic.ConfigStore, historyReader logic.HistoryReader, port int) *Server {
+func NewServer(configStore logic.ConfigStore, historyReader logic.HistoryReader, frontendFS fs.FS, port int) *Server {
 	return &Server{
 		ConfigStore:   configStore,
 		HistoryReader: historyReader,
+		FrontendFS:    frontendFS,
 		Port:          port,
 	}
 }
@@ -30,7 +33,7 @@ func NewServer(configStore logic.ConfigStore, historyReader logic.HistoryReader,
 // Handler returns an http.Handler with all routes registered.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /", s.handleIndex)
+	mux.Handle("GET /", http.FileServer(http.FS(s.FrontendFS)))
 	mux.HandleFunc("GET /api/history", s.handleGetHistory)
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("POST /api/config", s.handlePostConfig)
@@ -42,11 +45,6 @@ func (s *Server) ListenAndServe() error {
 	addr := fmt.Sprintf(":%d", s.Port)
 	log.Printf("web UI listening on http://localhost%s", addr)
 	return http.ListenAndServe(addr, s.Handler())
-}
-
-func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(indexHTML))
 }
 
 func (s *Server) handleGetHistory(w http.ResponseWriter, r *http.Request) {

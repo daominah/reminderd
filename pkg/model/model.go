@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+)
+
+const TimeFormat = "2006-01-02T15:04:05Z07:00"
 
 // ActivityState is the user's input activity state.
 type ActivityState string
@@ -30,6 +34,14 @@ func DefaultConfig() Config {
 }
 
 type HistoryEntry struct {
-	Time  time.Time `json:"Time"`
+	Time  string        `json:"Time"`
 	State ActivityState `json:"State"`
+}
+
+func FormatTime(t time.Time) string {
+	return t.Format(TimeFormat)
+}
+
+func ParseTime(s string) (time.Time, error) {
+	return time.Parse(TimeFormat, s)
 }

@@ -30,6 +30,14 @@ func dateKey(t time.Time) string {
 	return t.In(vnTimezone).Format("2006-01-02")
 }
 
+func dateKeyFromString(s string) string {
+	t, err := model.ParseTime(s)
+	if err != nil {
+		return ""
+	}
+	return dateKey(t)
+}
+
 func filename(date string) string {
 	return "history-" + date + ".jsonl"
 }
@@ -37,7 +45,7 @@ func filename(date string) string {
 // WriteEntry appends a history entry to the appropriate daily file.
 // If the date has changed, the previous file is closed and a new one is opened.
 func (s *FileStore) WriteEntry(e model.HistoryEntry) error {
-	date := dateKey(e.Time)
+	date := dateKeyFromString(e.Time)
 	if date != s.currentDate {
 		if s.currentFile != nil {
 			s.currentFile.Close()
@@ -126,10 +134,14 @@ func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]model.HistoryE
 			return nil, err
 		}
 		for _, e := range entries {
-			if e.Time.Before(start) {
+			t, err := model.ParseTime(e.Time)
+			if err != nil {
 				continue
 			}
-			if end != nil && e.Time.After(*end) {
+			if t.Before(start) {
+				continue
+			}
+			if end != nil && t.After(*end) {
 				continue
 			}
 			result = append(result, e)

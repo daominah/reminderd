@@ -210,7 +210,7 @@ func (t *UserInputTracker) writeHistory(ts time.Time, state model.ActivityState)
 	if t.HistoryWriter == nil {
 		return
 	}
-	entry := model.HistoryEntry{Time: ts, State: state}
+	entry := model.HistoryEntry{Time: model.FormatTime(ts), State: state}
 	if err := t.HistoryWriter.WriteEntry(entry); err != nil {
 		log.Printf("error HistoryWriter.WriteEntry: %v", err)
 	}

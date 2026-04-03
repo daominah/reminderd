@@ -2,19 +2,21 @@ package main
 
 import (
 	"context"
+	"io/fs"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
-	_ "github.com/daominah/reminderd/pkg/driver/base"
+	"github.com/daominah/reminderd/pkg/driver/base"
 	"github.com/daominah/reminderd/pkg/driver/config"
 	"github.com/daominah/reminderd/pkg/driver/history"
 	"github.com/daominah/reminderd/pkg/driver/httpsvr"
 	"github.com/daominah/reminderd/pkg/driver/notify"
 	"github.com/daominah/reminderd/pkg/driver/userinput"
 	"github.com/daominah/reminderd/pkg/logic"
+	"github.com/daominah/reminderd/web"
 )
 
 func main() {
@@ -22,7 +24,6 @@ func main() {
 		context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Create data directory.
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("error os.UserHomeDir: %v", err)
@@ -32,25 +33,34 @@ func main() {
 		log.Fatalf("error os.MkdirAll %s: %v", dataDir, err)
 	}
 
-	// Config.
 	configStore := config.NewFileConfigStore(filepath.Join(dataDir, "config.json"))
 	cfg, err := configStore.Load()
 	if err != nil {
 		log.Fatalf("error configStore.Load: %v", err)
 	}
 
-	// History.
 	historyStore := history.NewFileStore(dataDir)
 
-	// HTTP server.
-	srv := httpsvr.NewServer(configStore, historyStore, cfg.WebUIPort)
+	// Frontend: serve from disk if web/ dir exists (dev mode), otherwise use embedded files.
+	var frontendFS fs.FS
+	if rootDir, err := base.GetProjectRootDir(); err == nil {
+		webDir := filepath.Join(rootDir, "web")
+		if info, err := os.Stat(webDir); err == nil && info.IsDir() {
+			log.Printf("dev mode: serving frontend from %s", webDir)
+			frontendFS = os.DirFS(webDir)
+		}
+	}
+	if frontendFS == nil {
+		frontendFS = web.FrontendAssets
+	}
+
+	srv := httpsvr.NewServer(configStore, historyStore, frontendFS, cfg.WebUIPort)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
 			log.Printf("error httpsvr.ListenAndServe: %v", err)
 		}
 	}()
 
-	// Tracker.
 	tracker := logic.NewUserInputTracker(
 		&userinput.IdleDetector{},
 		&notify.OSNotifier{},
