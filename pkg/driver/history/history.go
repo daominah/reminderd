@@ -143,8 +143,11 @@ func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]logic.HistoryE
 		endDate = time.Now().In(base.VietnamTimezone)
 	}
 
+	startDay := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, base.VietnamTimezone)
+	endDay := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, base.VietnamTimezone)
+
 	var result []logic.HistoryEntry
-	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+	for d := startDay; !d.After(endDay); d = d.AddDate(0, 0, 1) {
 		date := d.Format("2006-01-02")
 		path := filepath.Join(s.Dir, filename(date))
 		entries, err := readFile(path)

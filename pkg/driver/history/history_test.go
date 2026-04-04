@@ -202,6 +202,31 @@ func TestReadRange_FarPastStartClampedToOldestFile(t *testing.T) {
 	}
 }
 
+func TestReadRange_CrossesMidnight(t *testing.T) {
+	// GIVEN entries on two consecutive days
+	dir := t.TempDir()
+	store := NewFileStore(dir)
+	defer store.Close()
+
+	day1Evening := time.Date(2026, 4, 2, 22, 0, 0, 0, base.VietnamTimezone)
+	day2Morning := time.Date(2026, 4, 3, 6, 0, 0, 0, base.VietnamTimezone)
+	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(day1Evening), State: logic.Active})
+	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(day2Morning), State: logic.Active})
+
+	// WHEN the start is late on day1 and end is early on day2 (crosses midnight)
+	start := time.Date(2026, 4, 2, 20, 0, 0, 0, base.VietnamTimezone)
+	end := time.Date(2026, 4, 3, 8, 0, 0, 0, base.VietnamTimezone)
+	entries, err := store.ReadRange(start, &end)
+	if err != nil {
+		t.Fatalf("ReadRange error: %v", err)
+	}
+
+	// THEN both entries are returned (day2 file must be read despite end < start+1day)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+}
+
 func countLines(data []byte) int {
 	if len(data) == 0 {
 		return 0
