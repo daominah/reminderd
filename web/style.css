@@ -1,6 +1,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, sans-serif; background: #fdf6e3; color: #657b83; padding: 24px; }
+body { font-family: system-ui, sans-serif; background: #fdf6e3; color: #657b83; padding: 24px; position: relative; }
 h1 { font-size: 1.4em; margin-bottom: 16px; color: #586e75; }
+.github-link { position: absolute; top: 24px; right: 24px; color: #93a1a1; text-decoration: none; }
+.github-link:hover { color: #268bd2; }
 .tabs { display: flex; gap: 0; margin-top: 16px; margin-bottom: 20px; border-bottom: 2px solid #eee8d5; }
 .tab { padding: 8px 20px; cursor: pointer; border: none; background: none; color: #93a1a1;
        font-size: 0.95em; border-bottom: 2px solid transparent; margin-bottom: -2px; }
