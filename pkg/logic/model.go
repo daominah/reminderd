@@ -1,7 +1,10 @@
 package logic
 
 import (
+	"math"
 	"time"
+
+	"github.com/daominah/reminderd/pkg/base"
 )
 
 // ActivityState is the user's input activity state.
@@ -36,13 +39,27 @@ type HistoryEntry struct {
 	TimeCompactEnd string        `json:"TimeCompactEnd,omitempty"`
 }
 
-// TimeFormat used in log files
+// TimeFormat used in log files and this service logic
 const TimeFormat = "2006-01-02T15:04:05Z07:00"
 
 func FormatTime(t time.Time) string {
-	return t.Format(TimeFormat)
+	return t.In(base.VietnamTimezone).Format(TimeFormat)
 }
 
 func ParseTime(s string) (time.Time, error) {
 	return time.Parse(TimeFormat, s)
+}
+
+func DiffTimeString(next, prev string) time.Duration {
+	t1, err1 := ParseTime(next)
+	t2, err2 := ParseTime(prev)
+	if err1 != nil || err2 != nil {
+		// unparseable timestamps are treated as a gap
+		return time.Duration(math.MaxInt64)
+	}
+	d := t1.Sub(t2)
+	if d < 0 {
+		return -d
+	}
+	return d
 }

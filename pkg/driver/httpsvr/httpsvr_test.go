@@ -9,7 +9,6 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/daominah/reminderd/pkg/base"
 	"github.com/daominah/reminderd/pkg/logic"
 )
 
@@ -44,8 +43,8 @@ func TestGetIndex_ReturnsHTML(t *testing.T) {
 func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 	// GIVEN a server with history entries
 	entries := []logic.HistoryEntry{
-		{Time: logic.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, base.VietnamTimezone)), State: logic.Active},
-		{Time: logic.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, base.VietnamTimezone)), State: logic.Idle},
+		{Time: logic.FormatTime(time.Date(2026, 4, 2, 10, 0, 0, 0, time.UTC)), State: logic.Active},
+		{Time: logic.FormatTime(time.Date(2026, 4, 2, 10, 0, 10, 0, time.UTC)), State: logic.Idle},
 	}
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},
@@ -75,7 +74,7 @@ func TestGetAPIHistory_ReturnsJSON(t *testing.T) {
 func TestGetAPIHistory_AcceptsTimeRange(t *testing.T) {
 	// GIVEN a server with history entries
 	entries := []logic.HistoryEntry{
-		{Time: logic.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)), State: logic.Active},
+		{Time: logic.FormatTime(time.Date(2026, 4, 2, 14, 0, 0, 0, time.UTC)), State: logic.Active},
 	}
 	srv := NewServer(
 		&logic.MockConfigStore{Cfg: logic.DefaultConfig()},

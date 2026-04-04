@@ -314,48 +314,20 @@ func TestTick_ConfigHotReload(t *testing.T) {
 	}
 }
 
-func TestRestoreActiveStart_ResumesFromHistory(t *testing.T) {
-	// GIVEN a history with an active session that started at 08:00
-	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
+func TestRestoreActiveStart_ResumesFromRawEntries(t *testing.T) {
+	// GIVEN a history with raw ACTIVE entries every 10s,
+	// an IDLE break before them, and now is within idleThreshold of the last entry
+	now := time.Date(2026, 1, 1, 8, 1, 0, 0, time.UTC)
 	historyReader := &MockHistoryReader{
 		Entries: []HistoryEntry{
 			{Time: FormatTime(time.Date(2026, 1, 1, 7, 0, 0, 0, time.UTC)), State: Active},
 			{Time: FormatTime(time.Date(2026, 1, 1, 7, 30, 0, 0, time.UTC)), State: Idle},
 			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
-			{Time: FormatTime(time.Date(2026, 1, 1, 8, 50, 0, 0, time.UTC)), State: Active},
-		},
-	}
-	tracker := &UserInputTracker{
-		IdleDetector:  &MockIdleDetector{Seconds: 0},
-		Notifier:      &MockNotifier{},
-		HistoryReader: historyReader,
-		HistoryWriter: &MockHistoryWriter{},
-		TimeNow:       func() time.Time { return now },
-	}
-
-	// WHEN the tracker starts (simulating a restart)
-	tracker.restoreActiveStart()
-
-	// THEN activeStart is restored to 08:00 (start of the last active run)
-	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
-	if !tracker.activeStart.Equal(expected) {
-		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
-	}
-
-	// AND ActiveDuration reflects the time since 08:00
-	d := tracker.ActiveDuration()
-	if d != 1*time.Hour {
-		t.Errorf("expected ActiveDuration 1h, got %v", d)
-	}
-}
-
-func TestRestoreActiveStart_NoRestoreWhenLastEntryIsIdle(t *testing.T) {
-	// GIVEN a history where the last entry is idle
-	now := time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)
-	historyReader := &MockHistoryReader{
-		Entries: []HistoryEntry{
-			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
-			{Time: FormatTime(time.Date(2026, 1, 1, 8, 30, 0, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 10, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 20, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 30, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 40, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 50, 0, time.UTC)), State: Active},
 		},
 	}
 	tracker := &UserInputTracker{
@@ -369,12 +341,200 @@ func TestRestoreActiveStart_NoRestoreWhenLastEntryIsIdle(t *testing.T) {
 	// WHEN the tracker starts
 	tracker.restoreActiveStart()
 
-	// THEN activeStart is not set (user was idle when process stopped)
+	// THEN activeStart is restored to 08:00:00 (start of the active run)
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
+	}
+
+	// AND ActiveDuration reflects the time since 08:00:00
+	d := tracker.ActiveDuration()
+	if d != 1*time.Minute {
+		t.Errorf("expected ActiveDuration 1m, got %v", d)
+	}
+}
+
+func TestRestoreActiveStart_ResumesFromCompactEntry(t *testing.T) {
+	// GIVEN a compacted history with a compact ACTIVE entry,
+	// and now is within idleThreshold of the last entry
+	now := time.Date(2026, 1, 1, 9, 1, 0, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 0, 0, 0, time.UTC)), State: Idle, IsCompact: true, TimeCompactEnd: FormatTime(time.Date(2026, 1, 1, 7, 59, 50, 0, time.UTC))},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active, IsCompact: true, TimeCompactEnd: FormatTime(time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC))},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is restored to 08:00:00 (the compact entry's Time)
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
+	}
+}
+
+func TestRestoreActiveStart_NoRestoreWhenGapTooLarge(t *testing.T) {
+	// GIVEN a history with ACTIVE entries, but now is 10 minutes after the last entry
+	// (exceeds idleThreshold of 2m)
+	now := time.Date(2026, 1, 1, 9, 10, 0, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 9, 0, 0, 0, time.UTC)), State: Active},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is not set (gap exceeds idleThreshold)
 	if !tracker.activeStart.IsZero() {
 		t.Errorf("expected zero activeStart, got %v", tracker.activeStart)
 	}
-	if tracker.ActiveDuration() != 0 {
-		t.Errorf("expected ActiveDuration 0, got %v", tracker.ActiveDuration())
+}
+
+func TestRestoreActiveStart_ShortIdleDoesNotResetSession(t *testing.T) {
+	// GIVEN a history with ACTIVE, short IDLE (30s < idleThreshold 2m), then ACTIVE again
+	now := time.Date(2026, 1, 1, 8, 1, 30, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 10, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 20, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 30, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 40, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 50, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 1, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 1, 10, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 1, 20, 0, time.UTC)), State: Active},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is 08:00:00 (short idle didn't break the session)
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
+	}
+}
+
+func TestRestoreActiveStart_ShortGapDoesNotResetSession(t *testing.T) {
+	// GIVEN a history with ACTIVE entries, a 30s data gap (< idleThreshold 2m),
+	// then ACTIVE again
+	now := time.Date(2026, 1, 1, 8, 1, 30, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 10, 0, time.UTC)), State: Active},
+			// 30s gap here (no entries from 08:00:20 to 08:00:50)
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 50, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 1, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 1, 10, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 1, 20, 0, time.UTC)), State: Active},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is 08:00:00 (short gap didn't break the session)
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
+	}
+}
+
+func TestRestoreActiveStart_LastEntryIdleButWithinThreshold(t *testing.T) {
+	// GIVEN a history where the last entry is IDLE but within idleThreshold of now,
+	// and ACTIVE entries before it
+	now := time.Date(2026, 1, 1, 8, 0, 40, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 10, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 20, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 30, 0, time.UTC)), State: Idle},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is 08:00:00 (short idle doesn't break session)
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
+	}
+}
+
+func TestRestoreActiveStart_IdleLongerThanThreshold(t *testing.T) {
+	// GIVEN a history with a gap/idle duration longer than standup break threshold
+	now := time.Date(2026, 1, 1, 8, 1, 0, 0, time.UTC)
+	historyReader := &MockHistoryReader{
+		Entries: []HistoryEntry{
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 57, 00, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 57, 30, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 58, 00, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 59, 30, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 7, 59, 50, 0, time.UTC)), State: Idle},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 10, 0, time.UTC)), State: Active},
+			{Time: FormatTime(time.Date(2026, 1, 1, 8, 0, 40, 0, time.UTC)), State: Active},
+		},
+	}
+	tracker := &UserInputTracker{
+		IdleDetector:  &MockIdleDetector{Seconds: 0},
+		Notifier:      &MockNotifier{},
+		HistoryReader: historyReader,
+		HistoryWriter: &MockHistoryWriter{},
+		TimeNow:       func() time.Time { return now },
+	}
+
+	// WHEN the tracker starts
+	tracker.restoreActiveStart()
+
+	// THEN activeStart is set to the first Active after the standup break
+	expected := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	if !tracker.activeStart.Equal(expected) {
+		t.Errorf("expected activeStart %v, got %v", expected, tracker.activeStart)
 	}
 }
 

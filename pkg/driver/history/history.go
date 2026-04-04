@@ -87,7 +87,7 @@ func (s *FileStore) WriteEntry(e logic.HistoryEntry) error {
 // CompactPrevious compacts the most recent history file before today.
 // It keeps only the first and last entry of each consecutive state run.
 func (s *FileStore) CompactPrevious() error {
-	today := dateKey(time.Now().In(base.VietnamTimezone))
+	today := dateKey(time.Now())
 	files, err := filepath.Glob(filepath.Join(s.Dir, "history-*.jsonl"))
 	if err != nil {
 		return fmt.Errorf("error filepath.Glob: %w", err)

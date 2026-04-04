@@ -27,7 +27,10 @@ type UserInputTracker struct {
 	ConfigStore   ConfigStore
 	HistoryWriter HistoryWriter
 	HistoryReader HistoryReader
-	TimeNow       func() time.Time
+
+	// TimeNow overrides time.Now() in tests to simulate time progression.
+	// Leave nil in production.
+	TimeNow func() time.Time
 
 	config           Config
 	activeStart      time.Time
@@ -198,20 +201,36 @@ func (t *UserInputTracker) restoreActiveStart() {
 		return
 	}
 
-	last := entries[len(entries)-1]
-	if last.State != Active {
-		return
-	}
+	// Walk backwards log entries one by one
+	standupPivot := FormatTime(now)
+	activeStartStr := ""
+	for i := len(entries) - 1; i >= 0; i-- {
+		entry := entries[i]
 
-	// Walk backwards to find where the current active run started.
-	activeStartStr := last.Time
-	for i := len(entries) - 2; i >= 0; i-- {
-		if entries[i].State != Active {
+		// Check if the gap between standupPivot and this entry
+		// is long enough to count as a standup break.
+		var entryEnd string
+		if entry.IsCompact {
+			entryEnd = entry.TimeCompactEnd
+		} else {
+			entryEnd = entry.Time
+		}
+		if DiffTimeString(standupPivot, entryEnd) >= t.idleThreshold() {
 			break
 		}
-		activeStartStr = entries[i].Time
+
+		// No standup break: if this entry is ACTIVE, update activeStart
+		// and advance the pivot. IDLE entries don't move the pivot,
+		// so idle duration accumulates across consecutive IDLE entries.
+		if entry.State == Active {
+			activeStartStr = entry.Time
+			standupPivot = entry.Time
+		}
 	}
 
+	if activeStartStr == "" {
+		return
+	}
 	parsed, err := ParseTime(activeStartStr)
 	if err != nil {
 		return

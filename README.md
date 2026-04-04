@@ -43,7 +43,7 @@ Hover over any bar to see the active/total duration breakdown.
 
 Activity is recorded to daily files in `~/.reminderd/` (e.g. `history-2026-04-03.jsonl`).
 At daily rollover, the previous day's file is compacted:
-only the first and last record of each consecutive state run are kept.
+each consecutive same-state run becomes one self-describing entry.
 
 History is kept forever. Estimated storage:
 ~300 KB/year (compacted), ~42 MB/year (uncompacted, 10s poll, 8h/day).
@@ -81,36 +81,44 @@ If the gap between two adjacent entries exceeds 2x PollInterval (20s),
 the run is split (gap detection).
 
 ```mermaid
-flowchart TD
+flowchart LR
     A["Raw entries"] --> B["Group consecutive\nsame-state entries"]
-    B --> C{"Gap > 2x\nPollInterval?"}
-    C -- yes --> D["Split into\nseparate runs"]
-    C -- no --> E["Same run"]
-    D --> F{"Run length\n> 1?"}
+    B --> C{"Gap < 2x\nPollInterval?"}
+    C -- yes --> E["Same run"]
+    C -- no --> D["Split into\nseparate runs"]
+    D --> F{"len(run) > 1?"}
     E --> F
-    F -- yes --> G["1 entry:\nIsCompact=true\nTime=first, TimeCompactEnd=last"]
+    F -- yes --> G["whole run compacted to 1 entry:\nIsCompact=true\nTime=first, TimeCompactEnd=last"]
     F -- no --> H["1 entry:\nkept as-is"]
 ```
 
 ### User Activity State
 
-A compact entry covers `Time` to `TimeCompactEnd` (self-describing).
-A raw entry's state lasts until the next entry.
-Gaps between entries are uncovered time (not counted as active or idle).
+Each entry represents one poll tick, so it covers `[Time, Time + PollInterval)`.  
+A compact entry covers `[Time, TimeCompactEnd + PollInterval)`.  
+Gaps between entries are treated as IDLE.
 
 ```mermaid
-flowchart TD
+flowchart LR
     Q["Query: state\nat time T"] --> F["Find latest entry\nwhere Time <= T"]
     F --> C{"Found?"}
-    C -- no --> R0["IDLE (gap)"]
+    C -- " no (reminderd never run before T) " --> R0["IDLE (gap)"]
     C -- yes --> D{"Has\nTimeCompactEnd?"}
-    D -- yes --> E1{"T <= TimeCompactEnd?"}
+    D -- yes --> E1{"T - TimeCompactEnd \n< PollInterval?"}
     E1 -- yes --> R1["Entry's State"]
     E1 -- no --> R0
-    D -- no --> E2{"T < next\nentry's Time?"}
+    D -- no --> E2{"T - Time \n< PollInterval?"}
     E2 -- yes --> R2["Entry's State"]
     E2 -- no --> R0
 ```
+
+### Restore Active Start (on process restart)
+
+On startup, `restoreActiveStart` walks backwards from `time.Now`
+to find where the current active session started.
+Short idle periods (< `IdleDurationToConsiderBreak`) don't reset the session.
+A gap longer than the threshold means the user took a real break,
+so only the activity after that break counts.
 
 ## Design
 

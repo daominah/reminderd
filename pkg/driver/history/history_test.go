@@ -78,9 +78,9 @@ func TestCompactPrevious_KeepsFirstAndLastOfRuns(t *testing.T) {
 		})
 	}
 
-	// WHEN compaction runs (simulate next day so previous = 2026-04-02)
-	nextDay := time.Date(2026, 4, 3, 8, 0, 0, 0, base.VietnamTimezone)
-	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(nextDay), State: logic.Active})
+	// WHEN compaction runs (write a "today" entry so 2026-04-02 becomes the target)
+	today := time.Now()
+	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(today), State: logic.Active})
 	store.CompactPrevious()
 
 	// THEN the 2026-04-02 file has 2 lines:
