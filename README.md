@@ -144,4 +144,5 @@ graph TD
 
 ## Roadmap
 
-- **v0.0.3**: minimal UI with system tray, install as a service (auto-start on boot).
+- Release with installers, can be auto-start on boot.
+- Minimal UI with system tray
