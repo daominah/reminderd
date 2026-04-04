@@ -177,6 +177,31 @@ func TestReadRange_NoEndReturnsAllFromStart(t *testing.T) {
 	}
 }
 
+func TestReadRange_FarPastStartClampedToOldestFile(t *testing.T) {
+	// GIVEN a file store with entries on 2026-04-02
+	dir := t.TempDir()
+	store := NewFileStore(dir)
+	defer store.Close()
+
+	t1 := time.Date(2026, 4, 2, 8, 0, 0, 0, base.VietnamTimezone)
+	t2 := time.Date(2026, 4, 2, 14, 0, 0, 0, base.VietnamTimezone)
+	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(t1), State: logic.Active})
+	store.WriteEntry(logic.HistoryEntry{Time: logic.FormatTime(t2), State: logic.Idle})
+
+	// WHEN querying from year 2000 (far before any data exists)
+	start := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 4, 2, 23, 59, 59, 0, base.VietnamTimezone)
+	entries, err := store.ReadRange(start, &end)
+	if err != nil {
+		t.Fatalf("ReadRange error: %v", err)
+	}
+
+	// THEN both entries are returned (start was clamped, not stuck looping)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+}
+
 func countLines(data []byte) int {
 	if len(data) == 0 {
 		return 0

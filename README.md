@@ -1,6 +1,6 @@
 # reminderd
 
-A background daemon that monitors mouse/keyboard input
+A background daemon that checks how long since the last mouse/keyboard event
 and **reminds you to take a break after sitting for too long**.
 
 The generic service name leaves room for other reminder types in the future.
@@ -18,7 +18,7 @@ go build -o reminderd ./cmd/reminderd
 ## How it works
 
 - Polls the OS for the time since the last keyboard/mouse event.
-- If you are continuously active for the configured limit (default 60m),
+- If you are continuously active for the configured limit (default 45m),
   it sends a desktop notification.
 - After the reminder, if you keep working, it reminds again with
   exponential backoff starting at the configured initial backoff (default 5m),
@@ -38,7 +38,7 @@ Open <http://localhost:20902> in a browser. The web UI has three tabs:
 
 A bar chart showing when you were active or idle.
 You can choose a time range (Last 1h, 4h, 12h, 24h, 2d, 7d, 30d, 6m, 1y, all time).
-Example summary: Last 4h | Active: 2h32m (63%) | Reminders: 2
+Example summary: Last 4h | Active: 2h32m (63%)
 Hover over any bar to see the active/total duration breakdown.
 
 Activity is recorded to daily files in `~/.reminderd/` (e.g. `history-2026-04-03.jsonl`).
@@ -58,7 +58,7 @@ On first run, the app creates `~/.reminderd/config.json` with defaults:
 
 ```json
 {
-	"ContinuousActiveLimit": "60m",
+	"ContinuousActiveLimit": "45m",
 	"IdleDurationToConsiderBreak": "2m",
 	"NotificationInitialBackoff": "5m",
 	"WebUIPort": 20902

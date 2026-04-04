@@ -49,7 +49,9 @@ async function loadChart() {
 	let label;
 	let startMs;
 	if (currentRangeMinutes === 0) {
-		url = "/api/history";
+		const allStart = "2000-01-01T00:00:00+07:00";
+		const endStr = toVN(now);
+		url = "/api/history?start=" + encodeURIComponent(allStart) + "&end=" + encodeURIComponent(endStr);
 		label = "All time";
 		startMs = 0;
 	} else {
@@ -103,6 +105,9 @@ function renderChart(entries, label, rangeStartMs, rangeEndMs) {
 	else if (spanHours <= 4) {
 		bucketMs = 5 * 60000;
 	}// 5m bars for 4h (48 bars)
+	else if (spanHours <= 8) {
+		bucketMs = 10 * 60000;
+	}// 10m bars for 8h (48 bars)
 	else if (spanHours <= 12) {
 		bucketMs = 15 * 60000;
 	}// 15m bars for 12h (48 bars)
@@ -128,7 +133,8 @@ function renderChart(entries, label, rangeStartMs, rangeEndMs) {
 	const vnOffsetMs = 7 * 60 * 60000;
 	const gridStart = alignedStart(rangeStartMs, bucketMs, vnOffsetMs);
 
-	const buckets = bucketizeEntries(entries, gridStart, bucketMs, rangeEndMs);
+	const pollIntervalMs = pollIntervalSec * 1000;
+	const buckets = bucketizeEntries(entries, gridStart, bucketMs, rangeEndMs, pollIntervalMs);
 
 	const totalBuckets = Math.ceil((rangeEndMs - gridStart) / bucketMs);
 	const leftPad = 50;
@@ -174,7 +180,7 @@ function renderChart(entries, label, rangeStartMs, rangeEndMs) {
 		ctx.fillText(text, x, H - 6);
 	}
 
-	const {activeSec, totalSec} = calcActiveDuration(entries, rangeEndMs);
+	const {activeSec, totalSec} = calcActiveDuration(entries, rangeStartMs, rangeEndMs, pollIntervalMs);
 	const pct = totalSec > 0 ? Math.round(activeSec / totalSec * 100) : 0;
 	document.getElementById("summary").textContent =
 		label + " | Active: " + formatDuration(activeSec) + " (" + pct + "%)";
@@ -310,3 +316,4 @@ async function testNotification() {
 
 loadChart();
 loadConfig();
+setInterval(loadChart, 60000);

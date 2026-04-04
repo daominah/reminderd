@@ -1,22 +1,24 @@
 // Run with: node web/chart_calc_test.js
 
-const { formatDuration, parseDurationToSec, formatRangeLabel, alignedStart, calcActiveDuration, bucketizeEntries } = require("./chart_calc");
+const {formatDuration, parseDurationToSec, formatRangeLabel, alignedStart, calcActiveDuration, bucketizeEntries} = require("./chart_calc");
 
 let passed = 0;
 let failed = 0;
 
 function assertEqual(actual, expected, name) {
-  if (actual === expected) {
-    passed++;
-  } else {
-    failed++;
-    console.error(`FAIL ${name}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
-  }
+	if (actual === expected) {
+		passed++;
+	} else {
+		failed++;
+		console.error(`FAIL ${name}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+	}
 }
 
-function activePct(entries, rangeEndMs) {
-  const { activeSec, totalSec } = calcActiveDuration(entries, rangeEndMs);
-  return totalSec > 0 ? Math.round(activeSec / totalSec * 100) : 0;
+const pollMs = 10000; // 10s poll interval
+
+function activePct(entries, rangeStartMs, rangeEndMs) {
+	const {activeSec, totalSec} = calcActiveDuration(entries, rangeStartMs, rangeEndMs, pollMs);
+	return totalSec > 0 ? Math.round(activeSec / totalSec * 100) : 0;
 }
 
 // --- formatDuration ---
@@ -78,209 +80,239 @@ const t130000 = new Date("2026-04-03T06:00:00Z").getTime(); // 13:00:00 +07:00
 // WHEN snapping 13:49:14 with 10-minute buckets
 // THEN aligns to 13:40:00
 assertEqual(alignedStart(t134914, 600000, vnOffsetMs), t134000,
-  "alignedStart 10m buckets");
+	"alignedStart 10m buckets");
 
 // WHEN snapping 13:49:14 with 1-hour buckets
 // THEN aligns to 13:00:00
 assertEqual(alignedStart(t134914, 3600000, vnOffsetMs), t130000,
-  "alignedStart 1h buckets");
+	"alignedStart 1h buckets");
 
-// --- calcActiveDuration ---
+// --- calcActiveDuration (tick-based) ---
 
-// GIVEN a user active 10:00-10:30, then idle 10:30-11:00
-// WHEN calculating active duration
-// THEN active is 30m, total is 1h
+// GIVEN a single ACTIVE entry at 10:00 with 10s poll
+// WHEN calculating active duration over [10:00, 10:00:10)
+// THEN active is 10s (one tick), total is 10s
 {
-  const entries = [
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T10:30:00+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 1800, "calcActiveDuration: 30m active");
-  assertEqual(result.totalSec, 3600, "calcActiveDuration: 1h total");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+	];
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:00:10Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 10, "calcActive: single tick 10s active");
+	assertEqual(result.totalSec, 10, "calcActive: single tick 10s total");
 }
 
-// GIVEN compacted data with two ACTIVE entries spanning 1h, then idle
-// WHEN calculating active duration
-// THEN the full active span is counted
+// GIVEN ACTIVE at 10:00 and IDLE at 10:00:10
+// WHEN calculating over [10:00, 10:00:20)
+// THEN active is 10s (first tick), total is 20s
 {
-  const entries = [
-    {Time: "2026-04-03T08:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T09:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T09:00:10+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T02:30:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 3610, "calcActiveDuration compacted: 1h0m10s active");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:10+07:00", State: "IDLE"},
+	];
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:00:20Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 10, "calcActive: active+idle 10s active");
+	assertEqual(result.totalSec, 20, "calcActive: active+idle 20s total");
 }
 
-// --- bucketizeEntries ---
-
-// GIVEN 1h of continuous activity
-// WHEN bucketing into two 30m buckets
-// THEN each bucket gets 30m of active time
+// GIVEN two ACTIVE entries 10s apart (raw consecutive)
+// WHEN calculating over [10:00, 10:00:20)
+// THEN active is 20s (two ticks), total is 20s
 {
-  const entries = [
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-  ];
-  const gridStart = new Date("2026-04-03T03:00:00Z").getTime();
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  const b = bucketizeEntries(entries, gridStart, 30 * 60 * 1000, rangeEnd);
-  assertEqual(b[0].activeSec, 1800, "bucketize: first 30m all active");
-  assertEqual(b[1].activeSec, 1800, "bucketize: second 30m all active");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:10+07:00", State: "ACTIVE"},
+	];
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:00:20Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 20, "calcActive: two raw ticks 20s active");
+	assertEqual(result.totalSec, 20, "calcActive: two raw ticks 20s total");
 }
 
-// GIVEN 20m active then 10m idle within one 30m bucket
-// WHEN bucketing
-// THEN the bucket has 20m active and 10m idle
+// GIVEN a gap: ACTIVE at 10:00, then ACTIVE at 10:05 (5m gap)
+// WHEN calculating over [10:00, 10:05:10)
+// THEN active is 20s (two ticks), gap is idle, total is 5m10s
 {
-  const entries = [
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T10:20:00+07:00", State: "IDLE"},
-  ];
-  const gridStart = new Date("2026-04-03T03:00:00Z").getTime();
-  const rangeEnd = new Date("2026-04-03T03:30:00Z").getTime();
-  const b = bucketizeEntries(entries, gridStart, 30 * 60 * 1000, rangeEnd);
-  assertEqual(b[0].activeSec, 1200, "bucketize: 20m active");
-  assertEqual(b[0].idleSec, 600, "bucketize: 10m idle");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:05:00+07:00", State: "ACTIVE"},
+	];
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:05:10Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 20, "calcActive: gap counted as idle, 20s active");
+	assertEqual(result.totalSec, 310, "calcActive: gap total 5m10s");
+}
+
+// GIVEN a compact ACTIVE entry from 10:00 to 10:59:50
+// WHEN calculating over [10:00, 11:00)
+// THEN active is 1h (compact covers [10:00, 10:59:50+10s) = [10:00, 11:00))
+{
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE", IsCompact: true, TimeCompactEnd: "2026-04-03T10:59:50+07:00"},
+	];
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 3600, "calcActive: compact 1h active");
+	assertEqual(result.totalSec, 3600, "calcActive: compact 1h total");
+}
+
+// GIVEN compact ACTIVE 08:00-08:59:50 then raw IDLE at 09:00
+// WHEN calculating over [08:00, 09:00:10)
+// THEN active is 1h (compact), total is 1h10s
+{
+	const entries = [
+		{Time: "2026-04-03T08:00:00+07:00", State: "ACTIVE", IsCompact: true, TimeCompactEnd: "2026-04-03T08:59:50+07:00"},
+		{Time: "2026-04-03T09:00:00+07:00", State: "IDLE"},
+	];
+	const rangeStart = new Date("2026-04-03T01:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T02:00:10Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 3600, "calcActive: compact+idle 1h active");
+	assertEqual(result.totalSec, 3610, "calcActive: compact+idle 1h10s total");
+}
+
+// GIVEN data starts at 10:00 but range starts at 09:00
+// WHEN calculating over [09:00, 10:00:10)
+// THEN active is 10s, total is 1h10s (full range window)
+{
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+	];
+	const rangeStart = new Date("2026-04-03T02:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:00:10Z").getTime();
+	const result = calcActiveDuration(entries, rangeStart, rangeEnd, pollMs);
+	assertEqual(result.activeSec, 10, "calcActive: range wider than data, 10s active");
+	assertEqual(result.totalSec, 3610, "calcActive: range wider than data, 1h10s total");
 }
 
 // --- active percentage ---
 
-// GIVEN 30m active then 30m idle
-// WHEN calculating percentage
+// GIVEN ACTIVE and IDLE entries each covering one tick
+// WHEN calculating percentage over [10:00, 10:00:20)
 // THEN 50%
 {
-  const entries = [
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T10:30:00+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  assertEqual(activePct(entries, rangeEnd), 50, "activePct: 50%");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:10+07:00", State: "IDLE"},
+	];
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:00:20Z").getTime();
+	assertEqual(activePct(entries, rangeStart, rangeEnd), 50, "activePct: 50% one tick each");
 }
 
-// GIVEN only active entries
+// GIVEN only ACTIVE entries (no gaps)
 // WHEN calculating percentage
 // THEN 100%
 {
-  const entries = [
-    {Time: "2026-04-03T08:00:00+07:00", State: "ACTIVE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T02:00:00Z").getTime();
-  assertEqual(activePct(entries, rangeEnd), 100, "activePct: 100%");
+	const entries = [
+		{Time: "2026-04-03T08:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T08:00:10+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T08:00:20+07:00", State: "ACTIVE"},
+	];
+	const rangeStart = new Date("2026-04-03T01:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T01:00:30Z").getTime();
+	assertEqual(activePct(entries, rangeStart, rangeEnd), 100, "activePct: 100% consecutive active");
 }
 
-// GIVEN only idle entries
+// GIVEN only IDLE entries
 // WHEN calculating percentage
 // THEN 0%
 {
-  const entries = [
-    {Time: "2026-04-03T08:00:00+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T02:00:00Z").getTime();
-  assertEqual(activePct(entries, rangeEnd), 0, "activePct: 0%");
-}
-
-// GIVEN multiple active-idle sessions (1h active, 1h idle, 30m active, 30m idle)
-// WHEN calculating percentage
-// THEN 50%
-{
-  const entries = [
-    {Time: "2026-04-03T08:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T09:00:00+07:00", State: "IDLE"},
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T10:30:00+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  assertEqual(activePct(entries, rangeEnd), 50, "activePct: 50% multiple sessions");
-}
-
-// GIVEN compacted data with a 2h active span then 1h idle
-// WHEN calculating percentage
-// THEN 67%
-{
-  const entries = [
-    {Time: "2026-04-03T08:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T10:00:10+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  assertEqual(activePct(entries, rangeEnd), 67, "activePct: 67% compacted");
+	const entries = [
+		{Time: "2026-04-03T08:00:00+07:00", State: "IDLE"},
+	];
+	const rangeStart = new Date("2026-04-03T01:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T01:00:10Z").getTime();
+	assertEqual(activePct(entries, rangeStart, rangeEnd), 0, "activePct: 0% idle");
 }
 
 // WHEN no entries
 // THEN 0%
-assertEqual(activePct([], Date.now()), 0, "activePct: 0% empty");
+assertEqual(activePct([], 0, Date.now()), 0, "activePct: 0% empty");
 
-// --- edge cases ---
-
-// GIVEN the last ACTIVE entry is 5 seconds before rangeEnd
-// WHEN calculating active duration
-// THEN active is 5s, total is 5s
+// GIVEN ACTIVE entry with a gap before rangeEnd
+// WHEN calculating percentage
+// THEN gap reduces active percentage
 {
-  const entries = [
-    {Time: "2026-04-03T14:59:55+07:00", State: "ACTIVE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T08:00:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 5, "edge: 5s before rangeEnd");
-  assertEqual(result.totalSec, 5, "edge: total 5s");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+	];
+	// rangeEnd is 20s after entry (10s active tick + 10s gap)
+	const rangeStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:00:20Z").getTime();
+	assertEqual(activePct(entries, rangeStart, rangeEnd), 50, "activePct: gap reduces pct");
 }
 
-// GIVEN the last entry timestamp equals rangeEnd exactly
-// WHEN calculating active duration
-// THEN the last entry contributes zero duration
+// --- bucketizeEntries (tick-based) ---
+
+// GIVEN 3 consecutive ACTIVE entries (10s each) in the same 1-minute bucket
+// WHEN bucketing into 1m buckets
+// THEN the bucket has 30s active
 {
-  const entries = [
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T11:00:00+07:00", State: "ACTIVE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 3600, "edge: last entry at rangeEnd");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:10+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:20+07:00", State: "ACTIVE"},
+	];
+	const gridStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:01:00Z").getTime();
+	const b = bucketizeEntries(entries, gridStart, 60000, rangeEnd, pollMs);
+	assertEqual(b[0].activeSec, 30, "bucketize tick: 3 ticks = 30s active");
 }
 
-// GIVEN a single entry at exactly rangeEnd
-// WHEN calculating active duration
-// THEN zero duration
+// GIVEN ACTIVE then IDLE entries in one bucket
+// WHEN bucketing
+// THEN the bucket has correct active and idle
 {
-  const entries = [
-    {Time: "2026-04-03T11:00:00+07:00", State: "ACTIVE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 0, "edge: single entry at rangeEnd");
-  assertEqual(result.totalSec, 0, "edge: zero total at rangeEnd");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:10+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:20+07:00", State: "IDLE"},
+		{Time: "2026-04-03T10:00:30+07:00", State: "IDLE"},
+	];
+	const gridStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:01:00Z").getTime();
+	const b = bucketizeEntries(entries, gridStart, 60000, rangeEnd, pollMs);
+	assertEqual(b[0].activeSec, 20, "bucketize tick: 20s active");
+	assertEqual(b[0].idleSec, 20, "bucketize tick: 20s idle");
 }
 
-// GIVEN an entry timestamp after rangeEnd (clock skew)
-// WHEN calculating active duration
-// THEN the span is capped at rangeEnd
+// GIVEN a compact ACTIVE entry spanning two 30m buckets
+// WHEN bucketing into 30m buckets
+// THEN each bucket gets the correct share
 {
-  const entries = [
-    {Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T11:00:05+07:00", State: "IDLE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 3600, "edge: clock skew capped at rangeEnd");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE", IsCompact: true, TimeCompactEnd: "2026-04-03T10:59:50+07:00"},
+	];
+	const gridStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T04:00:00Z").getTime();
+	const b = bucketizeEntries(entries, gridStart, 30 * 60 * 1000, rangeEnd, pollMs);
+	assertEqual(b[0].activeSec, 1800, "bucketize compact: first 30m all active");
+	assertEqual(b[1].activeSec, 1800, "bucketize compact: second 30m all active");
 }
 
-// GIVEN the user has been active since 14:00, now is 14:48
-// WHEN querying "Last 1h" (range starts 13:48, data starts at 14:00)
-// THEN active is 48m, percentage is 100% (no idle data exists)
+// GIVEN entries with a gap (ACTIVE at :00, nothing until :50, ACTIVE at :50)
+// WHEN bucketing into 1m buckets
+// THEN only the ticks are counted, gap time is not distributed
 {
-  const entries = [
-    {Time: "2026-04-03T14:00:00+07:00", State: "ACTIVE"},
-    {Time: "2026-04-03T14:48:00+07:00", State: "ACTIVE"},
-  ];
-  const rangeEnd = new Date("2026-04-03T07:48:00Z").getTime();
-  const result = calcActiveDuration(entries, rangeEnd);
-  assertEqual(result.activeSec, 2880, "real scenario: 48m active");
-  assertEqual(activePct(entries, rangeEnd), 100, "real scenario: 100%");
+	const entries = [
+		{Time: "2026-04-03T10:00:00+07:00", State: "ACTIVE"},
+		{Time: "2026-04-03T10:00:50+07:00", State: "ACTIVE"},
+	];
+	const gridStart = new Date("2026-04-03T03:00:00Z").getTime();
+	const rangeEnd = new Date("2026-04-03T03:01:00Z").getTime();
+	const b = bucketizeEntries(entries, gridStart, 60000, rangeEnd, pollMs);
+	assertEqual(b[0].activeSec, 20, "bucketize gap: only 2 ticks = 20s, not 60s");
 }
 
 // Summary
 console.log(`\n${passed} passed, ${failed} failed`);
-if (failed > 0) process.exit(1);
+if (failed > 0) {
+	process.exit(1);
+}

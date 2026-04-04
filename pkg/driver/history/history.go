@@ -85,7 +85,7 @@ func (s *FileStore) WriteEntry(e logic.HistoryEntry) error {
 }
 
 // CompactPrevious compacts the most recent history file before today.
-// It keeps only the first and last entry of each consecutive state run.
+// Each consecutive same-state run becomes one compact entry.
 func (s *FileStore) CompactPrevious() error {
 	today := dateKey(time.Now())
 	files, err := filepath.Glob(filepath.Join(s.Dir, "history-*.jsonl"))
@@ -123,8 +123,19 @@ func (s *FileStore) CompactPrevious() error {
 
 // ReadRange returns history entries within the given time range.
 // If end is nil, all entries from start onwards are returned.
+// Start is clamped to the oldest available file date to avoid scanning nonexistent days.
 func (s *FileStore) ReadRange(start time.Time, end *time.Time) ([]logic.HistoryEntry, error) {
 	startDate := start.In(base.VietnamTimezone)
+
+	// Clamp start to the oldest history file
+	files, err := filepath.Glob(filepath.Join(s.Dir, "history-*.jsonl"))
+	if err == nil && len(files) > 0 {
+		sort.Strings(files)
+		oldest := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(files[0]), "history-"), ".jsonl")
+		if t, err := time.ParseInLocation("2006-01-02", oldest, base.VietnamTimezone); err == nil && startDate.Before(t) {
+			startDate = t
+		}
+	}
 	var endDate time.Time
 	if end != nil {
 		endDate = end.In(base.VietnamTimezone)
