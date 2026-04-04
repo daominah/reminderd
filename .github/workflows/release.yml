@@ -16,12 +16,15 @@ jobs:
           - goos: darwin
             goarch: arm64
             runner: macos-latest
+            cgo: "1"
           - goos: linux
             goarch: amd64
             runner: ubuntu-latest
+            cgo: "1"
           - goos: windows
             goarch: amd64
             runner: ubuntu-latest
+            cgo: "0"
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +41,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: ${{ matrix.goos == 'linux' && '1' || '0' }}
+          CGO_ENABLED: ${{ matrix.cgo }}
         run: |
           ext=""
           if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
