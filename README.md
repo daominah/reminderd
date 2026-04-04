@@ -65,6 +65,14 @@ On first run, the app creates `~/.reminderd/config.json` with defaults:
 }
 ```
 
+### Run on startup
+
+A checkbox lets you register reminderd to start automatically when you log in.
+
+- **Windows:** adds an entry in the registry, visible in Task Manager's Startup tab.
+- **macOS:** creates a Launch Agent in `~/Library/LaunchAgents/`, visible in System Settings > General > Login Items.
+- **Linux:** creates an XDG autostart `.desktop` file in `~/.config/autostart/`.
+
 ### Notification
 
 Send a test notification to verify that desktop alerts are working on your system.
@@ -144,5 +152,4 @@ graph TD
 
 ## Roadmap
 
-- Release with installers, can be auto-start on boot.
 - Minimal UI with system tray

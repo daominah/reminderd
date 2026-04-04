@@ -314,6 +314,27 @@ async function testNotification() {
 	setTimeout(() => el.textContent = "", 3000);
 }
 
+async function loadAutostart() {
+	const resp = await fetch("/api/autostart");
+	const data = await resp.json();
+	document.getElementById("autostartCheckbox").checked = data.IsEnabled;
+}
+
+async function toggleAutostart() {
+	const isEnabled = document.getElementById("autostartCheckbox").checked;
+	const resp = await fetch("/api/autostart", {
+		method: "POST",
+		headers: {"Content-Type": "application/json"},
+		body: JSON.stringify({IsEnabled: isEnabled}),
+	});
+	if (!resp.ok) {
+		const text = await resp.text();
+		alert("Failed to update autostart: " + text);
+		document.getElementById("autostartCheckbox").checked = !isEnabled;
+	}
+}
+
 loadChart();
 loadConfig();
+loadAutostart();
 setInterval(loadChart, 60000);

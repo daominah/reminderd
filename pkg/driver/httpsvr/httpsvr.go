@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/daominah/reminderd/pkg/base"
+	"github.com/daominah/reminderd/pkg/driver/autostart"
 	"github.com/daominah/reminderd/pkg/logic"
 )
 
@@ -38,6 +39,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("POST /api/config", s.handlePostConfig)
 	mux.HandleFunc("POST /api/test-notification", s.handleTestNotification)
+	mux.HandleFunc("GET /api/autostart", s.handleGetAutostart)
+	mux.HandleFunc("POST /api/autostart", s.handlePostAutostart)
 	return mux
 }
 
@@ -148,6 +151,37 @@ func (s *Server) handlePostConfig(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cfg)
+}
+
+func (s *Server) handleGetAutostart(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{
+		"IsEnabled": autostart.IsRegistered(),
+	})
+}
+
+func (s *Server) handlePostAutostart(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IsEnabled bool
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, fmt.Sprintf("invalid JSON: %v", err), http.StatusBadRequest)
+		return
+	}
+	var err error
+	if req.IsEnabled {
+		err = autostart.Register()
+	} else {
+		err = autostart.Unregister()
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("error autostart: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{
+		"IsEnabled": autostart.IsRegistered(),
+	})
 }
 
 func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) {
