@@ -44,9 +44,13 @@ jobs:
           CGO_ENABLED: ${{ matrix.cgo }}
         run: |
           ext=""
-          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
+          ldflags=""
+          if [ "$GOOS" = "windows" ]; then
+            ext=".exe"
+            ldflags="-H windowsgui"
+          fi
           output="reminderd-${GOOS}-${GOARCH}${ext}"
-          go build -o "$output" ./cmd/reminderd/
+          go build -ldflags "$ldflags" -o "$output" ./cmd/reminderd/
           echo "ARTIFACT=$output" >> "$GITHUB_ENV"
 
       - name: Upload artifact
