@@ -149,8 +149,8 @@ function renderChart(entries, label, rangeStartMs, rangeEndMs) {
 		if (!b) {
 			continue;
 		}
-		const total = b.activeSec + b.idleSec;
-		const activeH = (b.activeSec / total) * chartH;
+		const bucketSec = bucketMs / 1000;
+		const activeH = (b.activeSec / bucketSec) * chartH;
 		const x = leftPad + i * barW;
 
 		ctx.fillStyle = "#859900";
@@ -216,19 +216,18 @@ document.getElementById("canvas").addEventListener("mousemove", function (e) {
 
 	const pad2 = n => String(n).padStart(2, "0");
 	const bucketTime = new Date(s.gridStart + bucketIdx * s.bucketMs + s.vnOffsetMs);
+	const dateStr = bucketTime.getUTCFullYear() + "-" + pad2(bucketTime.getUTCMonth() + 1) + "-" + pad2(bucketTime.getUTCDate());
 	let timeStr;
-	if (s.spanHours <= 1) {
-		timeStr = pad2(bucketTime.getUTCHours()) + ":" + pad2(bucketTime.getUTCMinutes());
-	} else if (s.spanHours <= 48) {
-		timeStr = pad2(bucketTime.getUTCHours()) + ":" + pad2(bucketTime.getUTCMinutes());
+	if (s.spanHours <= 48) {
+		timeStr = dateStr + " " + pad2(bucketTime.getUTCHours()) + ":" + pad2(bucketTime.getUTCMinutes());
 	} else {
-		timeStr = bucketTime.getUTCFullYear() + "-" + pad2(bucketTime.getUTCMonth() + 1) + "-" + pad2(bucketTime.getUTCDate());
+		timeStr = dateStr;
 	}
 
-	const total = b.activeSec + b.idleSec;
+	const bucketSec = s.bucketMs / 1000;
 	const activeDur = formatDuration(Math.round(b.activeSec));
-	const totalDur = formatDuration(Math.round(total));
-	const pct = Math.round(b.activeSec / total * 100);
+	const totalDur = formatDuration(Math.round(bucketSec));
+	const pct = Math.round(b.activeSec / bucketSec * 100);
 	tooltip.textContent = timeStr + " | Active: " + activeDur + " / " + totalDur + " (" + pct + "%)";
 	tooltip.style.display = "block";
 	let left = e.clientX - rect.left + 12;
